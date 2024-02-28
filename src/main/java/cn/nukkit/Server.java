@@ -18,6 +18,7 @@ import cn.nukkit.entity.data.property.EntityProperty;
 import cn.nukkit.event.HandlerList;
 import cn.nukkit.event.level.LevelInitEvent;
 import cn.nukkit.event.level.LevelLoadEvent;
+import cn.nukkit.event.player.PlayerLoginEvent;
 import cn.nukkit.event.server.QueryRegenerateEvent;
 import cn.nukkit.event.server.ServerStartedEvent;
 import cn.nukkit.event.server.ServerStopEvent;
@@ -49,8 +50,6 @@ import cn.nukkit.nbt.tag.DoubleTag;
 import cn.nukkit.nbt.tag.FloatTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.network.Network;
-import cn.nukkit.network.RakNetInterface;
-import cn.nukkit.network.SourceInterface;
 import cn.nukkit.network.protocol.DataPacket;
 import cn.nukkit.network.protocol.PlayerListPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
@@ -59,6 +58,8 @@ import cn.nukkit.permission.BanEntry;
 import cn.nukkit.permission.BanList;
 import cn.nukkit.permission.DefaultPermissions;
 import cn.nukkit.permission.Permissible;
+import cn.nukkit.player.info.PlayerInfo;
+import cn.nukkit.player.info.XboxLivePlayerInfo;
 import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.plugin.JSPluginLoader;
 import cn.nukkit.plugin.JavaPluginLoader;
@@ -99,6 +100,7 @@ import org.iq80.leveldb.CompressionType;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.Options;
 import org.iq80.leveldb.impl.Iq80DBFactory;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -126,6 +128,7 @@ import java.security.PrivilegedAction;
 import java.security.ProtectionDomain;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinWorkerThread;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -272,9 +275,9 @@ public class Server {
     private QueryRegenerateEvent queryRegenerateEvent;
     private Config properties;
     private Config config;
-    private final Map<InetSocketAddress, Player> players = new HashMap<>();
+    private final Map<InetSocketAddress, Player> players = new ConcurrentHashMap<>();
 
-    private final Map<UUID, Player> playerList = new HashMap<>();
+    private final Map<UUID, Player> playerList = new ConcurrentHashMap<>();
 
     private PositionTrackingService positionTrackingService;
 
@@ -683,10 +686,6 @@ public class Server {
         log.info(this.getLanguage().tr("nukkit.server.networkStart", new String[]{this.getIp().equals("") ? "*" : this.getIp(), String.valueOf(this.getPort())}));
         this.serverID = UUID.randomUUID();
 
-        this.network = new Network(this);
-        this.network.setName(this.getMotd());
-        this.network.setSubName(this.getSubMotd());
-
         log.info(this.getLanguage().tr("nukkit.server.info", this.getName(), TextFormat.YELLOW + this.getNukkitVersion() + " (" + this.getGitCommit() + ")" + TextFormat.WHITE, this.getApiVersion()));
         log.info(this.getLanguage().tr("nukkit.server.license"));
 
@@ -732,11 +731,8 @@ public class Server {
                 this.getConfig("memory-compression.heat.melting", 16),
                 this.getConfig("memory-compression.heat.single-operation", 1),
                 this.getConfig("memory-compression.heat.batch-operation", 32));
-
         scoreboardManager = new ScoreboardManager(new JSONScoreboardStorage(this.commandDataPath + "/scoreboard.json"));
-
         functionManager = new FunctionManager(this.commandDataPath + "/functions");
-
         tickingAreaManager = new SimpleTickingAreaManager(new JSONTickingAreaStorage(this.dataPath + "worlds/"));
 
         // Convert legacy data before plugins get the chance to mess with it.
@@ -753,17 +749,11 @@ public class Server {
                 new ZippedResourcePackLoader(new File(Nukkit.DATA_PATH, "resource_packs")),
                 new JarPluginResourcePackLoader(new File(this.pluginPath))
         );
-
         this.commandMap = new SimpleCommandMap(this);
         this.pluginManager = new PluginManager(this, this.commandMap);
         this.pluginManager.subscribeToPermission(Server.BROADCAST_CHANNEL_ADMINISTRATIVE, this.consoleSender);
-
         this.pluginManager.registerInterface(JavaPluginLoader.class);
         this.pluginManager.registerInterface(JSPluginLoader.class);
-
-        this.queryRegenerateEvent = new QueryRegenerateEvent(this, 5);
-
-        this.network.registerInterface(new RakNetInterface(this));
 
         try {
             log.debug("Loading position tracking service");
@@ -771,8 +761,12 @@ public class Server {
         } catch (IOException e) {
             log.error("Failed to start the Position Tracking DB service!", e);
         }
-
         this.pluginManager.loadInternalPlugin();
+
+        this.queryRegenerateEvent = new QueryRegenerateEvent(this, 5);
+        this.network = new Network(this);
+        this.network.setPong(this.getMotd());
+
         this.pluginManager.loadPlugins(this.pluginPath);
 
         {//trim
@@ -989,11 +983,7 @@ public class Server {
             this.consoleThread.interrupt();
 
             log.debug("Stopping network interfaces");
-            for (SourceInterface interfaz : this.network.getInterfaces()) {
-                interfaz.shutdown();
-                this.network.unregisterInterface(interfaz);
-            }
-
+            network.shutdown();
             playerDataDB.close();
             //close watchdog and metrics
             if (this.watchdog != null) {
@@ -1197,8 +1187,6 @@ public class Server {
                     log.error("", e);
                 }
             }
-
-            this.getNetwork().updateName();
         }
 
         if (this.autoSave && ++this.autoSaveTicker >= this.autoSaveTicks) {
@@ -1601,7 +1589,6 @@ public class Server {
      * @see #broadcastPacket(Player[], DataPacket)
      */
     public static void broadcastPacket(Collection<Player> players, DataPacket packet) {
-        packet.tryEncode();
         for (Player player : players) {
             player.dataPacket(packet);
         }
@@ -1614,8 +1601,6 @@ public class Server {
      * @param packet  数据包
      */
     public static void broadcastPacket(Player[] players, DataPacket packet) {
-        packet.tryEncode();
-
         for (Player player : players) {
             player.dataPacket(packet);
         }
@@ -1685,21 +1670,27 @@ public class Server {
         this.sendFullPlayerListData(player);
     }
 
-    public void onPlayerLogin(Player player) {
+    public void onPlayerLogin(InetSocketAddress socketAddress, Player player) {
+        PlayerLoginEvent ev;
+        this.getPluginManager().callEvent(ev = new PlayerLoginEvent(player, "Plugin reason"));
+        if (ev.isCancelled()) {
+            player.close(player.getLeaveMessage(), ev.getKickMessage());
+            return;
+        }
+
+        this.players.put(socketAddress, player);
         if (this.sendUsageTicker > 0) {
             this.uniquePlayers.add(player.getUniqueId());
         }
     }
 
-    public void addPlayer(InetSocketAddress socketAddress, Player player) {
-        this.players.put(socketAddress, player);
-    }
-
+    @ApiStatus.Internal
     public void addOnlinePlayer(Player player) {
         this.playerList.put(player.getUniqueId(), player);
         this.updatePlayerListData(player.getUniqueId(), player.getId(), player.getDisplayName(), player.getSkin(), player.getLoginChainData().getXUID());
     }
 
+    @ApiStatus.Internal
     public void removeOnlinePlayer(Player player) {
         if (this.playerList.containsKey(player.getUniqueId())) {
             this.playerList.remove(player.getUniqueId());
@@ -1858,20 +1849,23 @@ public class Server {
      * <p>
      * Update the UUID of the specified player name in the database, or add it if it does not exist.
      *
-     * @param player the player
+     * @param info the player info
      */
-    void updateName(Player player) {
-        byte[] nameBytes = player.getName().toLowerCase().getBytes(StandardCharsets.UTF_8);
+    void updateName(PlayerInfo info) {
+        var uniqueId = info.getUniqueId();
+        var name = info.getUsername();
+
+        byte[] nameBytes = name.toLowerCase().getBytes(StandardCharsets.UTF_8);
 
         ByteBuffer buffer = ByteBuffer.allocate(16);
-        buffer.putLong(player.getUniqueId().getMostSignificantBits());
-        buffer.putLong(player.getUniqueId().getLeastSignificantBits());
+        buffer.putLong(uniqueId.getMostSignificantBits());
+        buffer.putLong(uniqueId.getLeastSignificantBits());
         byte[] array = buffer.array();
         byte[] bytes = playerDataDB.get(array);
         if (bytes == null) {
             playerDataDB.put(nameBytes, array);
         }
-        if (player.getLoginChainData().isXboxAuthed() && this.getPropertyBoolean("xbox-auth") || !this.getPropertyBoolean("xbox-auth")) {//update
+        if (info instanceof XboxLivePlayerInfo && this.getPropertyBoolean("xbox-auth") || !this.getPropertyBoolean("xbox-auth")) {//update
             playerDataDB.put(nameBytes, array);
         }
     }
@@ -2130,13 +2124,7 @@ public class Server {
         return matchedPlayer.toArray(Player.EMPTY_ARRAY);
     }
 
-    /**
-     * 删除一个玩家，可以让一个玩家离线.
-     * <p>
-     * Delete a player to take a player offline.
-     *
-     * @param player 需要删除的玩家<br>Players who need to be deleted
-     */
+    @ApiStatus.Internal
     public void removePlayer(Player player) {
         Player toRemove = this.players.remove(player.getRawSocketAddress());
         if (toRemove != null) {
@@ -2150,7 +2138,6 @@ public class Server {
                 break;
             }
         }
-        player.dataPacketManager = null;
     }
 
     /**
@@ -2254,7 +2241,7 @@ public class Server {
      * @param player 玩家
      */
     public void sendRecipeList(Player player) {
-        player.dataPacket(Registries.RECIPE.getCraftingPacket());
+        player.getSession().sendRawPacket(ProtocolInfo.CRAFTING_DATA_PACKET, Registries.RECIPE.getCraftingPacket());
     }
 
     /**
@@ -2521,7 +2508,7 @@ public class Server {
             player.recalculatePermissions();
             player.getAdventureSettings().onOpChange(true);
             player.getAdventureSettings().update();
-            player.sendCommandData();
+            player.getSession().syncAvailableCommands();
         }
         this.operators.save(true);
     }
@@ -2533,7 +2520,7 @@ public class Server {
             player.recalculatePermissions();
             player.getAdventureSettings().onOpChange(false);
             player.getAdventureSettings().update();
-            player.sendCommandData();
+            player.getSession().syncAvailableCommands();
         }
         this.operators.save();
     }
