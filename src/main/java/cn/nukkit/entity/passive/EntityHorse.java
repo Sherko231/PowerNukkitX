@@ -5,7 +5,13 @@ import cn.nukkit.Server;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockDirt;
 import cn.nukkit.block.BlockTurtleEgg;
-import cn.nukkit.entity.*;
+import cn.nukkit.entity.Attribute;
+import cn.nukkit.entity.Entity;
+import cn.nukkit.entity.EntityMarkVariant;
+import cn.nukkit.entity.EntityOwnable;
+import cn.nukkit.entity.EntityRideable;
+import cn.nukkit.entity.EntityVariant;
+import cn.nukkit.entity.EntityWalkable;
 import cn.nukkit.entity.ai.EntityAI;
 import cn.nukkit.entity.ai.behavior.Behavior;
 import cn.nukkit.entity.ai.behaviorgroup.BehaviorGroup;
@@ -42,7 +48,10 @@ import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
-import cn.nukkit.network.protocol.*;
+import cn.nukkit.network.protocol.AddEntityPacket;
+import cn.nukkit.network.protocol.DataPacket;
+import cn.nukkit.network.protocol.LevelSoundEventPacket;
+import cn.nukkit.network.protocol.UpdateAttributesPacket;
 import cn.nukkit.network.protocol.types.EntityLink;
 import cn.nukkit.utils.Utils;
 import org.jetbrains.annotations.NotNull;
@@ -299,7 +308,7 @@ public class EntityHorse extends EntityAnimal implements EntityWalkable, EntityV
         down.onEntityFallOn(this, fallDistance);
 
         if (fallDistance > 0.75) {//todo: moving these into their own classes (method "onEntityFallOn()")
-            if (down.getId() == Block.FARMLAND) {
+            if (down.getId().equals(Block.FARMLAND)) {
                 if (onPhysicalInteraction(down, false)) {
                     return;
                 }
@@ -324,7 +333,7 @@ public class EntityHorse extends EntityAnimal implements EntityWalkable, EntityV
     public boolean onUpdate(int currentTick) {
         boolean b = super.onUpdate(currentTick);
         if (currentTick % 2 == 0) {
-            if (this.jumping.get() && this.isOnGround()) {
+            if (this.jumping!=null && this.jumping.get() && this.isOnGround()) {
                 this.setDataFlag(EntityFlag.STANDING, false);
                 this.jumping.set(false);
             }
@@ -337,7 +346,7 @@ public class EntityHorse extends EntityAnimal implements EntityWalkable, EntityV
         return super.canCollideWith(entity) && entity != this.getRider();
     }
 
-    public void onPlayerInput(Location clientLoc) {
+    public void onInput(Location clientLoc) {
         if (this.getRider() == null || this.getOwner() == null || this.getSaddle().isNull()) return;
         //每次输入乘骑玩家位置之前都要确保motion为0,避免onGround不更新
         this.motionX = 0;
@@ -345,10 +354,10 @@ public class EntityHorse extends EntityAnimal implements EntityWalkable, EntityV
         this.motionZ = 0;
         this.setMoveTarget(null);
         this.setLookTarget(null);
-        this.move(clientLoc.x - this.x, (clientLoc.y - 0.5) - this.y, clientLoc.z - this.z);
+        this.move(clientLoc.x - this.x, clientLoc.y - this.y, clientLoc.z - this.z);
         this.yaw = clientLoc.yaw;
         this.headYaw = clientLoc.headYaw;
-        broadcastMovement();
+        broadcastMovement(false);
     }
 
     @Override

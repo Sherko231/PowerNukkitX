@@ -12,6 +12,8 @@ import cn.nukkit.level.format.ChunkState;
 import cn.nukkit.level.format.IChunk;
 import cn.nukkit.level.format.IChunkBuilder;
 import cn.nukkit.level.format.UnsafeChunk;
+import cn.nukkit.level.format.bitarray.BitArrayVersion;
+import cn.nukkit.level.format.palette.BlockPalette;
 import cn.nukkit.level.format.palette.Palette;
 import cn.nukkit.level.util.LevelDBKeyUtil;
 import cn.nukkit.nbt.NBTIO;
@@ -23,7 +25,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufOutputStream;
 import io.netty.buffer.Unpooled;
-import lombok.extern.slf4j.Slf4j;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.WriteBatch;
 
@@ -41,7 +43,6 @@ import java.util.List;
  *
  * @author Cool_Loong
  */
-@Slf4j
 public class LevelDBChunkSerializer {
     public static final LevelDBChunkSerializer INSTANCE = new LevelDBChunkSerializer();
 
@@ -53,9 +54,10 @@ public class LevelDBChunkSerializer {
             try {
                 writeBatch.put(LevelDBKeyUtil.VERSION.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getProvider().getDimensionData()), new byte[]{IChunk.VERSION});
                 writeBatch.put(LevelDBKeyUtil.CHUNK_FINALIZED_STATE.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), Unpooled.buffer(4).writeIntLE(unsafeChunk.getChunkState().ordinal() - 1).array());
-                writeBatch.put(LevelDBKeyUtil.PNX_EXTRA_DATA.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), NBTIO.write(unsafeChunk.getExtraData()));
                 serializeBlock(writeBatch, unsafeChunk);
                 serializeHeightAndBiome(writeBatch, unsafeChunk);
+                serializeLight(writeBatch, unsafeChunk);
+                writeBatch.put(LevelDBKeyUtil.PNX_EXTRA_DATA.getKey(unsafeChunk.getX(), unsafeChunk.getZ(), unsafeChunk.getDimensionData()), NBTIO.write(unsafeChunk.getExtraData()));
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -78,7 +80,9 @@ public class LevelDBChunkSerializer {
         if (finalized == null) {
             builder.state(ChunkState.FINISHED);
         } else {
-            builder.state(ChunkState.values()[Unpooled.wrappedBuffer(finalized).readIntLE() + 1]);
+            ByteBuf byteBuf = Unpooled.wrappedBuffer(finalized);
+            final int i = byteBuf.readableBytes() >= 4 ? byteBuf.readIntLE() : byteBuf.readByte();
+            builder.state(ChunkState.values()[i + 1]);
         }
         byte[] extraData = db.get(LevelDBKeyUtil.PNX_EXTRA_DATA.getKey(builder.getChunkX(), builder.getChunkZ(), builder.getDimensionData()));
         CompoundTag pnxExtraData = null;
@@ -88,6 +92,54 @@ public class LevelDBChunkSerializer {
         deserializeBlock(db, builder, pnxExtraData);
         deserializeHeightAndBiome(db, builder, pnxExtraData);
         deserializeTileAndEntity(db, builder, pnxExtraData);
+        deserializeLight(db, builder, pnxExtraData);
+    }
+
+    //serialize chunk section light
+    private void serializeLight(WriteBatch writeBatch, UnsafeChunk chunk) {
+        ChunkSection[] sections = chunk.getSections();
+        for (var section : sections) {
+            if (section == null) {
+                continue;
+            }
+            ByteBuf buffer = ByteBufAllocator.DEFAULT.ioBuffer();
+            try {
+                byte[] blockLights = section.blockLights().getData();
+                buffer.writeInt(blockLights.length);
+                buffer.writeBytes(blockLights);
+                byte[] skyLights = section.skyLights().getData();
+                buffer.writeInt(skyLights.length);
+                buffer.writeBytes(skyLights);
+                writeBatch.put(LevelDBKeyUtil.PNX_LIGHT.getKey(chunk.getX(), chunk.getZ(), section.y(), chunk.getProvider().getDimensionData()), Utils.convertByteBuf2Array(buffer));
+            } finally {
+                buffer.release();
+            }
+        }
+    }
+
+    private void deserializeLight(DB db, IChunkBuilder builder, CompoundTag pnxExtraData) {
+        DimensionData dimensionInfo = builder.getDimensionData();
+        var minSectionY = dimensionInfo.getMinSectionY();
+        for (int ySection = minSectionY; ySection <= dimensionInfo.getMaxSectionY(); ySection++) {
+            byte[] bytes = db.get(LevelDBKeyUtil.PNX_LIGHT.getKey(builder.getChunkX(), builder.getChunkZ(), ySection, dimensionInfo));
+            if (bytes != null) {
+                ByteBuf byteBuf = ByteBufAllocator.DEFAULT.ioBuffer();
+                try {
+                    byteBuf.writeBytes(bytes);
+                    int i = byteBuf.readInt();
+                    byte[] blockLights = new byte[i];
+                    byteBuf.readBytes(blockLights);
+                    int i2 = byteBuf.readInt();
+                    byte[] skyLights = new byte[i2];
+                    byteBuf.readBytes(skyLights);
+                    final ChunkSection section = builder.getSections()[ySection - minSectionY];
+                    section.blockLights().copyFrom(blockLights);
+                    section.skyLights().copyFrom(skyLights);
+                } finally {
+                    byteBuf.release();
+                }
+            }
+        }
     }
 
     //serialize chunk section
@@ -136,15 +188,14 @@ public class LevelDBChunkSerializer {
                             if (layers <= 2) {
                                 section = new ChunkSection((byte) ySection);
                             } else {
-                                @SuppressWarnings("rawtypes") Palette[] palettes = new Palette[layers];
-                                Arrays.fill(palettes, new Palette<>(BlockAir.PROPERTIES.getDefaultState()));
+                                BlockPalette[] palettes = new BlockPalette[layers];
+                                Arrays.fill(palettes, new BlockPalette(BlockAir.PROPERTIES.getDefaultState(), new ReferenceArrayList<>(16), BitArrayVersion.V2));
                                 section = new ChunkSection((byte) ySection, palettes);
                             }
                             for (int layer = 0; layer < layers; layer++) {
                                 section.blockLayer()[layer].readFromStoragePersistent(byteBuf, hash -> {
                                     BlockState blockState = Registries.BLOCKSTATE.get(hash);
                                     if (blockState == null) {
-                                        log.error("missing block hash: " + hash);
                                         return BlockUnknown.PROPERTIES.getDefaultState();
                                     }
                                     return blockState;
@@ -168,12 +219,12 @@ public class LevelDBChunkSerializer {
             for (short height : chunk.getHeightMapArray()) {
                 heightAndBiomesBuffer.writeShortLE(height);
             }
-            Palette<Integer> biomePalette;
+            Palette<Integer> biomePalette = null;
             for (int ySection = chunk.getProvider().getDimensionData().getMinSectionY(); ySection <= chunk.getProvider().getDimensionData().getMaxSectionY(); ySection++) {
                 ChunkSection section = chunk.getSection(ySection);
                 if (section == null) continue;
+                section.biomes().writeToStorageRuntime(heightAndBiomesBuffer, Integer::intValue, biomePalette);
                 biomePalette = section.biomes();
-                biomePalette.writeToStorageRuntime(heightAndBiomesBuffer, Integer::intValue);
             }
             if (heightAndBiomesBuffer.readableBytes() > 0) {
                 writeBatch.put(LevelDBKeyUtil.DATA_3D.getKey(chunk.getX(), chunk.getZ(), chunk.getProvider().getDimensionData()), Utils.convertByteBuf2Array(heightAndBiomesBuffer));
@@ -196,13 +247,13 @@ public class LevelDBChunkSerializer {
                     heights[i] = heightAndBiomesBuffer.readShortLE();
                 }
                 builder.heightMap(heights);
-                Palette<Integer> biomePalette;
+                Palette<Integer> lastPalette = null;
                 var minSectionY = builder.getDimensionData().getMinSectionY();
                 for (int y = minSectionY; y <= builder.getDimensionData().getMaxSectionY(); y++) {
                     ChunkSection section = builder.getSections()[y - minSectionY];
                     if (section == null) continue;
-                    biomePalette = section.biomes();
-                    biomePalette.readFromStorageRuntime(heightAndBiomesBuffer, Integer::valueOf);
+                    section.biomes().readFromStorageRuntime(heightAndBiomesBuffer, Integer::valueOf, lastPalette);
+                    lastPalette = section.biomes();
                 }
             } else {
                 byte[] bytes2D = db.get(LevelDBKeyUtil.DATA_2D.getKey(builder.getChunkX(), builder.getChunkZ(), dimensionInfo));

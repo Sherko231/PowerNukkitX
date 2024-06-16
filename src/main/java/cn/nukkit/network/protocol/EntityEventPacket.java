@@ -1,13 +1,14 @@
 package cn.nukkit.network.protocol;
 
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.network.connection.util.HandleByteBuf;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
-/**
- * @author MagicDroidX (Nukkit Project)
- */
+
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class EntityEventPacket extends DataPacket {
     public static final int NETWORK_ID = ProtocolInfo.ENTITY_EVENT_PACKET;
     public static final int NONE = 0;
@@ -87,14 +88,7 @@ public class EntityEventPacket extends DataPacket {
 
 
     public static final int ENTITY_GROW_UP = 76;
-    @Deprecated
-    @DeprecationDetails(reason = "wrong key name", since = "1.19.21-r4")
-
-
-    public static final int VIBRATION_DETECTE = 77;
-
-
-    public static final int VIBRATION_DETECTED = VIBRATION_DETECTE;
+    public static final int VIBRATION_DETECTED = 77;
 
     public static final int DRINK_MILK = 78;
 

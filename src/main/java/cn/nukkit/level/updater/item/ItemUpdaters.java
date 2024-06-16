@@ -17,6 +17,9 @@ public class ItemUpdaters {
     static {
         List<Updater> updaters = new ArrayList<>();
         updaters.add(ItemUpdater_1_20_60.INSTANCE);
+        updaters.add(ItemUpdater_1_20_70.INSTANCE);
+        updaters.add(ItemUpdater_1_20_80.INSTANCE);
+        updaters.add(ItemUpdater_1_21_0.INSTANCE);
 
         CompoundTagUpdaterContext context = new CompoundTagUpdaterContext();
         updaters.forEach(updater -> updater.registerUpdaters(context));

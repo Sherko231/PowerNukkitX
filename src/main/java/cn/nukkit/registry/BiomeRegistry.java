@@ -23,16 +23,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class BiomeRegistry implements IRegistry<Integer, BiomeRegistry.BiomeDefinition, BiomeRegistry.BiomeDefinition> {
     private static final Int2ObjectOpenHashMap<BiomeDefinition> DEFINITIONS = new Int2ObjectOpenHashMap<>(0xFF);
     private static final Object2IntOpenHashMap<String> NAME2ID = new Object2IntOpenHashMap<>(0xFF);
     private static final List<CompoundTag> REGISTRY = new ArrayList<>(0xFF);
-
+    private static final AtomicBoolean isLoad = new AtomicBoolean(false);
 
     @Override
     public void init() {
+        if (isLoad.getAndSet(true)) return;
         try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biome_id_and_type.json")) {
             Gson gson = new GsonBuilder().setObjectToNumberStrategy(JsonReader::nextInt).create();
             Map<String, ?> map = gson.fromJson(new InputStreamReader(stream), Map.class);
@@ -44,7 +46,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeRegistry.BiomeDefi
         }
 
         try (var stream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biome_definitions.nbt")) {
-            TreeMapCompoundTag compoundTag = NBTIO.readCompressedTreeMapCompoundTag(stream, ByteOrder.BIG_ENDIAN);
+            TreeMapCompoundTag compoundTag = NBTIO.readTreeMapCompoundTag(stream, ByteOrder.BIG_ENDIAN, true);
             Map<String, Tag> tags = compoundTag.getTags();
             for (var e : tags.entrySet()) {
                 int id = NAME2ID.getInt(e.getKey());
@@ -93,7 +95,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeRegistry.BiomeDefi
 
     public byte[] getBiomeDefinitionListPacketData() {
         //todo Figure out the mapping of custom biomes
-        try (InputStream resourceAsStream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biome_definitions_vanilla.nbt")){
+        try (InputStream resourceAsStream = BiomeRegistry.class.getClassLoader().getResourceAsStream("biome_definitions.nbt")) {
             assert resourceAsStream != null;
             return resourceAsStream.readAllBytes();
         } catch (IOException e) {
@@ -110,6 +112,15 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeRegistry.BiomeDefi
     public void trim() {
         DEFINITIONS.trim();
         NAME2ID.trim();
+    }
+
+    @Override
+    public void reload() {
+        isLoad.set(false);
+        DEFINITIONS.clear();
+        REGISTRY.clear();
+        NAME2ID.clear();
+        init();
     }
 
     @Override
@@ -148,7 +159,7 @@ public class BiomeRegistry implements IRegistry<Integer, BiomeRegistry.BiomeDefi
         public CompoundTag toNBT() {
             ListTag<StringTag> stringTagListTag = new ListTag<>();
             for (var s : tags) {
-                stringTagListTag.add(new StringTag( s));
+                stringTagListTag.add(new StringTag(s));
             }
             return new CompoundTag()
                     .putFloat("ash", ash)

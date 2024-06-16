@@ -18,7 +18,7 @@ import static cn.nukkit.block.property.CommonBlockProperties.WEIRDO_DIRECTION;
  * @author MagicDroidX (Nukkit Project)
  */
 public abstract class BlockStairs extends BlockTransparent implements Faceable {
-    protected BlockStairs(BlockState blockState) {
+    public BlockStairs(BlockState blockState) {
         super(blockState);
     }
 
@@ -58,7 +58,7 @@ public abstract class BlockStairs extends BlockTransparent implements Faceable {
         double maxSlabY = 0.5;
         double minHalfSlabY = 0.5;
         double maxHalfSlabY = 1;
-        
+
         if (isUpsideDown()) {
             minSlabY = 0.5;
             maxSlabY = 1;

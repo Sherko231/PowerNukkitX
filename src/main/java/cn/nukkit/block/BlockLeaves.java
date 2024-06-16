@@ -2,7 +2,6 @@ package cn.nukkit.block;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.block.property.enums.OldLeafType;
 import cn.nukkit.block.property.enums.WoodType;
 import cn.nukkit.event.block.LeavesDecayEvent;
 import cn.nukkit.item.Item;
@@ -21,26 +20,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import static cn.nukkit.block.property.CommonBlockProperties.PERSISTENT_BIT;
+import static cn.nukkit.block.property.CommonBlockProperties.UPDATE_BIT;
 
 /**
  * @author Angelic47 (Nukkit Project)
  */
-public class BlockLeaves extends BlockTransparent {
-    public static final BlockProperties PROPERTIES = new BlockProperties(LEAVES, OLD_LEAF_TYPE, PERSISTENT_BIT, UPDATE_BIT);
-
-    @Override
-    @NotNull public BlockProperties getProperties() {
-        return PROPERTIES;
-    }
-
+public abstract class BlockLeaves extends BlockTransparent {
     private static final BlockFace[] VISIT_ORDER = new BlockFace[]{
             BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST, BlockFace.DOWN, BlockFace.UP
     };
-
-    public BlockLeaves() {
-        this(PROPERTIES.getDefaultState());
-    }
 
     public BlockLeaves(BlockState blockState) {
         super(blockState);
@@ -56,13 +45,7 @@ public class BlockLeaves extends BlockTransparent {
         return ItemTool.TYPE_HOE;
     }
 
-    public WoodType getType() {
-        return WoodType.valueOf(getPropertyValue(OLD_LEAF_TYPE).name().toUpperCase());
-    }
-
-    public void setType(WoodType type) {
-        setPropertyValue(OLD_LEAF_TYPE, OldLeafType.valueOf(type.name().toUpperCase()));
-    }
+    public abstract WoodType getType();
 
     @Override
     public String getName() {
@@ -137,7 +120,7 @@ public class BlockLeaves extends BlockTransparent {
             drops.add(Item.get(ItemID.STICK));
         }
         if (random.nextInt(saplingOdds) == 0) {
-            drops.add(getSapling());
+            drops.add(toSapling());
         }
 
         return drops.toArray(Item.EMPTY_ARRAY);
@@ -228,10 +211,6 @@ public class BlockLeaves extends BlockTransparent {
         return getType() == WoodType.OAK;
     }
 
-    protected Item getSapling() {
-        return Item.get(BlockID.SAPLING, getPropertyValue(OLD_LEAF_TYPE).ordinal());
-    }
-
     @Override
     public boolean diffusesSkyLight() {
         return true;
@@ -245,5 +224,9 @@ public class BlockLeaves extends BlockTransparent {
     @Override
     public boolean sticksToPiston() {
         return false;
+    }
+
+    public Item toSapling() {
+        return Item.AIR;
     }
 }

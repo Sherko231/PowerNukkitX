@@ -1,6 +1,7 @@
 package cn.nukkit.block;
 
 import cn.nukkit.Player;
+import cn.nukkit.block.property.enums.WoodType;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
 import cn.nukkit.item.enchantment.Enchantment;
@@ -12,7 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import static cn.nukkit.block.property.CommonBlockProperties.PERSISTENT_BIT;
+import static cn.nukkit.block.property.CommonBlockProperties.UPDATE_BIT;
 
 public class BlockMangroveLeaves extends BlockLeaves {
 
@@ -29,6 +31,11 @@ public class BlockMangroveLeaves extends BlockLeaves {
 
     public BlockMangroveLeaves(BlockState blockstate) {
         super(blockstate);
+    }
+
+    @Override
+    public WoodType getType() {
+        return null;
     }
 
     @Override

@@ -2,19 +2,21 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.item.Item;
 import cn.nukkit.network.connection.util.HandleByteBuf;
+import cn.nukkit.network.protocol.types.RecipeUnlockingRequirement;
 import cn.nukkit.recipe.*;
 import cn.nukkit.recipe.descriptor.DefaultDescriptor;
 import cn.nukkit.recipe.descriptor.ItemDescriptor;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * @author Nukkit Project Team
- */
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class CraftingDataPacket extends DataPacket {
     public static final int NETWORK_ID = ProtocolInfo.CRAFTING_DATA_PACKET;
     public static final String CRAFTING_TAG_CRAFTING_TABLE = "crafting_table";
@@ -67,7 +69,6 @@ public class CraftingDataPacket extends DataPacket {
 
     @Override
     public void encode(HandleByteBuf byteBuf) {
-        
         byteBuf.writeUnsignedVarInt(entries.size());
 
         int recipeNetworkId = 1;
@@ -84,6 +85,7 @@ public class CraftingDataPacket extends DataPacket {
                     byteBuf.writeUUID(stonecutter.getUUID());
                     byteBuf.writeString(CRAFTING_TAG_STONECUTTER);
                     byteBuf.writeVarInt(stonecutter.getPriority());
+                    this.writeRequirement(byteBuf, stonecutter.getRequirement());
                     byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
                 case SHAPELESS, CARTOGRAPHY, SHULKER_BOX -> {
@@ -102,12 +104,12 @@ public class CraftingDataPacket extends DataPacket {
                         case SHAPELESS, SHULKER_BOX -> byteBuf.writeString(CRAFTING_TAG_CRAFTING_TABLE);
                     }
                     byteBuf.writeVarInt(shapeless.getPriority());
+                    this.writeRequirement(byteBuf, shapeless.getRequirement());
                     byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
                 case SMITHING_TRANSFORM -> {
                     SmithingTransformRecipe smithing = (SmithingTransformRecipe) recipe;
                     byteBuf.writeString(smithing.getRecipeId());
-                    //todo 1.19.80还没有模板，下个版本再加入
                     byteBuf.writeRecipeIngredient(smithing.getTemplate());
                     byteBuf.writeRecipeIngredient(smithing.getBase());
                     byteBuf.writeRecipeIngredient(smithing.getAddition());
@@ -116,7 +118,13 @@ public class CraftingDataPacket extends DataPacket {
                     byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
                 case SMITHING_TRIM -> {
-                    //todo
+                    SmithingTrimRecipe shaped = (SmithingTrimRecipe) recipe;
+                    byteBuf.writeString(shaped.getRecipeId());
+                    byteBuf.writeRecipeIngredient(shaped.getIngredients().get(0));
+                    byteBuf.writeRecipeIngredient(shaped.getIngredients().get(1));
+                    byteBuf.writeRecipeIngredient(shaped.getIngredients().get(2));
+                    byteBuf.writeString(shaped.getTag());
+                    byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
                 case SHAPED -> {
                     ShapedRecipe shaped = (ShapedRecipe) recipe;
@@ -136,13 +144,16 @@ public class CraftingDataPacket extends DataPacket {
                     byteBuf.writeUUID(shaped.getUUID());
                     byteBuf.writeString(CRAFTING_TAG_CRAFTING_TABLE);
                     byteBuf.writeVarInt(shaped.getPriority());
+                    byteBuf.writeBoolean(shaped.isMirror());
+                    this.writeRequirement(byteBuf, shaped.getRequirement());
                     byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
                 case MULTI -> {
                     byteBuf.writeUUID(((MultiRecipe) recipe).getId());
                     byteBuf.writeUnsignedVarInt(recipeNetworkId++);
                 }
-                case FURNACE, FURNACE_DATA, SMOKER, SMOKER_DATA, BLAST_FURNACE, BLAST_FURNACE_DATA, CAMPFIRE, CAMPFIRE_DATA, SOUL_CAMPFIRE_DATA, SOUL_CAMPFIRE -> {
+                case FURNACE, FURNACE_DATA, SMOKER, SMOKER_DATA, BLAST_FURNACE, BLAST_FURNACE_DATA, CAMPFIRE,
+                     CAMPFIRE_DATA, SOUL_CAMPFIRE_DATA, SOUL_CAMPFIRE -> {
                     SmeltingRecipe smelting = (SmeltingRecipe) recipe;
                     Item input = smelting.getInput().toItem();
                     byteBuf.writeVarInt(input.getRuntimeId());
@@ -181,6 +192,16 @@ public class CraftingDataPacket extends DataPacket {
         byteBuf.writeUnsignedVarInt(0); // Material reducers size
 
         byteBuf.writeBoolean(cleanRecipes);
+    }
+
+    protected void writeRequirement(HandleByteBuf buffer, RecipeUnlockingRequirement requirement) {
+        buffer.writeByte(requirement.getContext().ordinal());
+        if (requirement.getContext().equals(RecipeUnlockingRequirement.UnlockingContext.NONE)) {
+            buffer.writeUnsignedVarInt(requirement.getIngredients().size());
+            for (var ing : requirement.getIngredients()) {
+                buffer.writeRecipeIngredient(ing);
+            }
+        }
     }
 
     @Override

@@ -1,17 +1,17 @@
 package cn.nukkit.block;
 
 import cn.nukkit.Player;
-import cn.nukkit.block.property.enums.FlowerType;
 import cn.nukkit.item.Item;
 import cn.nukkit.math.BlockFace;
 import org.jetbrains.annotations.NotNull;
 
 
-public class BlockTorchflower extends BlockRedFlower {
+public class BlockTorchflower extends BlockFlower {
     public static final BlockProperties PROPERTIES = new BlockProperties(TORCHFLOWER);
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -30,15 +30,5 @@ public class BlockTorchflower extends BlockRedFlower {
 
     public String getName() {
         return "Torchflower";
-    }
-
-    @Override
-    public void setFlowerType(FlowerType flowerType) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FlowerType getFlowerType() {
-        throw new UnsupportedOperationException();
     }
 }

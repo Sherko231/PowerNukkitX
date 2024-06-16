@@ -1,12 +1,13 @@
 package cn.nukkit.network.protocol;
 
-import cn.nukkit.Server;
 import cn.nukkit.block.customblock.CustomBlockDefinition;
 import cn.nukkit.level.GameRules;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.registry.Registries;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,20 +23,21 @@ import java.util.UUID;
  */
 @Slf4j
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class StartGamePacket extends DataPacket {
-
     public static final int NETWORK_ID = ProtocolInfo.START_GAME_PACKET;
-
-    public static final int GAME_PUBLISH_SETTING_NO_MULTI_PLAY = 0;
-    public static final int GAME_PUBLISH_SETTING_INVITE_ONLY = 1;
-    public static final int GAME_PUBLISH_SETTING_FRIENDS_ONLY = 2;
-    public static final int GAME_PUBLISH_SETTING_FRIENDS_OF_FRIENDS = 3;
-    public static final int GAME_PUBLISH_SETTING_PUBLIC = 4;
 
     @Override
     public int pid() {
         return NETWORK_ID;
     }
+    
+    public static final int GAME_PUBLISH_SETTING_NO_MULTI_PLAY = 0;
+    public static final int GAME_PUBLISH_SETTING_INVITE_ONLY = 1;
+    public static final int GAME_PUBLISH_SETTING_FRIENDS_ONLY = 2;
+    public static final int GAME_PUBLISH_SETTING_FRIENDS_OF_FRIENDS = 3;
+    public static final int GAME_PUBLISH_SETTING_PUBLIC = 4;
 
     public long entityUniqueId;
     public long entityRuntimeId;
@@ -49,12 +51,12 @@ public class StartGamePacket extends DataPacket {
     public byte dimension;
     public int generator = 1;
     public int worldGamemode;
+    public boolean isHardcore = false;
     public int difficulty;
     public int spawnX;
     public int spawnY;
     public int spawnZ;
     public boolean hasAchievementsDisabled = true;
-
     public boolean worldEditor;
     public int dayCycleStopTime = -1; //-1 = not stopped, any positive value = stopped at that time
     public int eduEditionOffer = 0;
@@ -68,11 +70,9 @@ public class StartGamePacket extends DataPacket {
     public int platformBroadcastIntent = GAME_PUBLISH_SETTING_PUBLIC;
     public boolean commandsEnabled;
     public boolean isTexturePacksRequired = false;
-
     public GameRules gameRules;
     public boolean bonusChest = false;
     public boolean hasStartWithMapEnabled = false;
-
     public int permissionLevel = 1;
     public int serverChunkTickRange = 4;
     public boolean hasLockedBehaviorPack = false;
@@ -82,43 +82,28 @@ public class StartGamePacket extends DataPacket {
     public boolean isFromWorldTemplate = false;
     public boolean isWorldTemplateOptionLocked = false;
     public boolean isOnlySpawningV1Villagers = false;
-
     public String vanillaVersion = ProtocolInfo.MINECRAFT_VERSION_NETWORK;
     //HACK: For now we can specify this version, since the new chunk changes are not relevant for our Anvil format.
     //However, it could be that Microsoft will prevent this in a new update.
-
     public CompoundTag playerPropertyData = new CompoundTag();
-
     public String levelId = ""; //base64 string, usually the same as world folder name in vanilla
     public String worldName;
     public String premiumWorldTemplateId = "";
     public boolean isTrial = false;
-    @Deprecated
     public boolean isMovementServerAuthoritative;
-
-
     public Integer serverAuthoritativeMovement;
-
     public boolean isInventoryServerAuthoritative;
-
     public long currentTick;
-
     public int enchantmentSeed;
-
     public final List<CustomBlockDefinition> blockProperties = new ArrayList<>();
-
     public String multiplayerCorrelationId = "";
-
     public boolean isDisablingPersonas;
-
     public boolean isDisablingCustomSkins;
-
     public boolean clientSideGenerationEnabled;
     /**
      * @since v567
      */
     public boolean emoteChatMuted;
-
     /**
      * Whether block runtime IDs should be replaced by 32-bit integer hashes of the NBT block state.
      * Unlike runtime IDs, this hashes should be persistent across versions and should make support for data-driven/custom blocks easier.
@@ -140,21 +125,20 @@ public class StartGamePacket extends DataPacket {
      * @since v589
      */
     public boolean isSoundsServerAuthoritative;
+    /**
+     * @since v685
+     */
+    private String serverId = "";
+    /**
+     * @since v685
+     */
+    private String worldId = "";
+    /**
+     * @since v685
+     */
+    private String scenarioId = "";
 
-    @Override
-    public void decode(HandleByteBuf byteBuf) {
-
-    }
-
-    @Override
-    public void encode(HandleByteBuf byteBuf) {
-
-        byteBuf.writeEntityUniqueId(this.entityUniqueId);
-        byteBuf.writeEntityRuntimeId(this.entityRuntimeId);
-        byteBuf.writeVarInt(this.playerGamemode);
-        byteBuf.writeVector3f(this.x, this.y, this.z);
-        byteBuf.writeFloatLE(this.yaw);
-        byteBuf.writeFloatLE(this.pitch);
+    private void writeLevelSettings(HandleByteBuf byteBuf) {
         /* Level settings start */
         byteBuf.writeLongLE(this.seed);
         byteBuf.writeShortLE(0x00); // SpawnBiomeType - Default
@@ -162,6 +146,7 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeVarInt(this.dimension);
         byteBuf.writeVarInt(this.generator);
         byteBuf.writeVarInt(this.worldGamemode);
+        byteBuf.writeBoolean(this.isHardcore);
         byteBuf.writeVarInt(this.difficulty);
         byteBuf.writeBlockVector3(this.spawnX, this.spawnY, this.spawnZ);
         byteBuf.writeBoolean(this.hasAchievementsDisabled);
@@ -182,27 +167,24 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeBoolean(this.commandsEnabled);
         byteBuf.writeBoolean(this.isTexturePacksRequired);
         byteBuf.writeGameRules(this.gameRules);
-        if (!Server.getInstance().isWaterdogCapable()) {
-            byteBuf.writeIntLE(6); // Experiment count
-            {
-                byteBuf.writeString("data_driven_items");
-                byteBuf.writeBoolean(true);
-                byteBuf.writeString("data_driven_biomes");
-                byteBuf.writeBoolean(true);
-                byteBuf.writeString("upcoming_creator_features");
-                byteBuf.writeBoolean(true);
-                byteBuf.writeString("gametest");
-                byteBuf.writeBoolean(true);
-                byteBuf.writeString("experimental_molang_features");
-                byteBuf.writeBoolean(true);
-                byteBuf.writeString("cameras");
-                byteBuf.writeBoolean(true);
-            }
-            byteBuf.writeBoolean(true); // Were experiments previously toggled
-        } else {
-            byteBuf.writeIntLE(0);
-            byteBuf.writeBoolean(false); // Were experiments previously toggled
+
+        byteBuf.writeIntLE(6); // Experiment count
+        {
+            byteBuf.writeString("data_driven_items");
+            byteBuf.writeBoolean(true);
+            byteBuf.writeString("data_driven_biomes");
+            byteBuf.writeBoolean(true);
+            byteBuf.writeString("upcoming_creator_features");
+            byteBuf.writeBoolean(true);
+            byteBuf.writeString("gametest");
+            byteBuf.writeBoolean(true);
+            byteBuf.writeString("experimental_molang_features");
+            byteBuf.writeBoolean(true);
+            byteBuf.writeString("cameras");
+            byteBuf.writeBoolean(true);
         }
+        byteBuf.writeBoolean(true); // Were experiments previously toggled
+        
         byteBuf.writeBoolean(this.bonusChest);
         byteBuf.writeBoolean(this.hasStartWithMapEnabled);
         byteBuf.writeVarInt(this.permissionLevel);
@@ -226,7 +208,26 @@ public class StartGamePacket extends DataPacket {
         byteBuf.writeBoolean(false); // force Experimental Gameplay (exclusive to debug clients)
         byteBuf.writeByte(this.chatRestrictionLevel);
         byteBuf.writeBoolean(this.disablePlayerInteractions);
+        byteBuf.writeString(serverId);
+        byteBuf.writeString(worldId);
+        byteBuf.writeString(scenarioId);
         /* Level settings end */
+    }
+
+    @Override
+    public void decode(HandleByteBuf byteBuf) {
+
+    }
+
+    @Override
+    public void encode(HandleByteBuf byteBuf) {
+        byteBuf.writeEntityUniqueId(this.entityUniqueId);
+        byteBuf.writeEntityRuntimeId(this.entityRuntimeId);
+        byteBuf.writeVarInt(this.playerGamemode);
+        byteBuf.writeVector3f(this.x, this.y, this.z);
+        byteBuf.writeFloatLE(this.yaw);
+        byteBuf.writeFloatLE(this.pitch);
+        writeLevelSettings(byteBuf);
         byteBuf.writeString(this.levelId);
         byteBuf.writeString(this.worldName);
         byteBuf.writeString(this.premiumWorldTemplateId);

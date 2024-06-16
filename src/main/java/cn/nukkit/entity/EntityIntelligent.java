@@ -74,13 +74,13 @@ public abstract class EntityIntelligent extends EntityPhysical implements Logica
      *
      * @return 新创建的行为组
      */
-
     protected IBehaviorGroup requireBehaviorGroup() {
         return new EmptyBehaviorGroup(this);
     }
 
     @Override
     public void asyncPrepare(int currentTick) {
+        if (!isAlive()) return;
         // 计算是否活跃
         isActive = level.isHighLightChunk(getChunkX(), getChunkZ());
         if (!this.isImmobile()) { // immobile会禁用实体AI

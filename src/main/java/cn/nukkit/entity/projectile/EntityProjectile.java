@@ -1,15 +1,18 @@
 package cn.nukkit.entity.projectile;
 
 import cn.nukkit.Player;
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.block.Block;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.entity.EntityLiving;
 import cn.nukkit.entity.item.EntityBoat;
 import cn.nukkit.entity.item.EntityEnderCrystal;
 import cn.nukkit.entity.item.EntityMinecartAbstract;
-import cn.nukkit.event.entity.*;
+import cn.nukkit.event.entity.EntityCombustByEntityEvent;
+import cn.nukkit.event.entity.EntityDamageByChildEntityEvent;
+import cn.nukkit.event.entity.EntityDamageByEntityEvent;
+import cn.nukkit.event.entity.EntityDamageEvent;
 import cn.nukkit.event.entity.EntityDamageEvent.DamageCause;
+import cn.nukkit.event.entity.ProjectileHitEvent;
 import cn.nukkit.level.MovingObjectPosition;
 import cn.nukkit.level.Position;
 import cn.nukkit.level.format.IChunk;
@@ -22,6 +25,7 @@ import cn.nukkit.math.Vector3;
 import cn.nukkit.nbt.tag.CompoundTag;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -30,17 +34,12 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public abstract class EntityProjectile extends Entity {
     public static final int PICKUP_NONE = 0;
-
     public static final int PICKUP_ANY = 1;
-
     public static final int PICKUP_CREATIVE = 2;
 
     public Entity shootingEntity;
     public boolean hadCollision;
     public boolean closeOnCollide;
-    @Deprecated
-    @DeprecationDetails(since = "FUTURE", by = "PowerNukkit", reason = "Redundant and unused", replaceWith = "getDamage()")
-    protected double damage;
     /**
      * It's inverted from {@link #getHasAge()} because of the poor architecture chosen by the original devs
      * on the entity construction and initialization. It's impossible to set it to true before
@@ -56,7 +55,7 @@ public abstract class EntityProjectile extends Entity {
         super(chunk, nbt);
         this.shootingEntity = shootingEntity;
         if (shootingEntity != null) {
-            this.setDataProperty(TARGET_EID, shootingEntity.getId());
+            this.setDataProperty(OWNER_EID, shootingEntity.getId());
         }
     }
 
@@ -152,6 +151,20 @@ public abstract class EntityProjectile extends Entity {
         this.motionZ *= 1 - this.getDrag();
     }
 
+    /**
+     * Filters the entities that collide with projectile
+     *
+     * @param entity the collide entity
+     * @return the boolean
+     */
+    protected boolean collideEntityFilter(Entity entity) {
+        if ((entity == this.shootingEntity && this.ticksLived < 5) ||
+                (entity instanceof Player player && player.getGamemode() == Player.SPECTATOR)
+                || (this.shootingEntity instanceof Player && Optional.ofNullable(this.shootingEntity.riding).map(e -> e.equals(entity)).orElse(false))) {
+            return false;
+        } else return true;
+    }
+
     @Override
     public boolean onUpdate(int currentTick) {
         if (this.closed) {
@@ -182,10 +195,7 @@ public abstract class EntityProjectile extends Entity {
             Entity nearEntity = null;
 
             for (Entity entity : list) {
-                if (/*!entity.canCollideWith(this) or */
-                        (entity == this.shootingEntity && this.ticksLived < 5) ||
-                                (entity instanceof Player && ((Player) entity).getGamemode() == Player.SPECTATOR)
-                ) {
+                if (!collideEntityFilter(entity)) {
                     continue;
                 }
 
@@ -275,22 +285,6 @@ public abstract class EntityProjectile extends Entity {
 
     protected void addHitEffect() {
 
-    }
-
-    @Deprecated
-    @DeprecationDetails(
-            by = "PowerNukkit", since = "FUTURE", reason = "Bad method name", replaceWith = "getHasAge",
-            toBeRemovedAt = "1.7.0.0-PN")
-    public boolean hasAge() {
-        return getHasAge();
-    }
-
-    @Deprecated
-    @DeprecationDetails(
-            by = "PowerNukkit", since = "FUTURE", reason = "Bad method name", replaceWith = "setHasAge",
-            toBeRemovedAt = "1.7.0.0-PN")
-    public void setAge(boolean hasAge) {
-        setHasAge(hasAge);
     }
 
     public boolean getHasAge() {

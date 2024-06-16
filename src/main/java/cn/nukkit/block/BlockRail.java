@@ -268,6 +268,11 @@ public class BlockRail extends BlockFlowable implements Faceable {
         setPropertyValue(RAIL_DIRECTION_10, orientation.metadata());
     }
 
+    /**
+     * Get the rail orientation.
+     *
+     * @return the orientation
+     */
     public Orientation getOrientation() {
         return Orientation.byMetadata(getPropertyValue(RAIL_DIRECTION_10));
     }
@@ -348,17 +353,12 @@ public class BlockRail extends BlockFlowable implements Faceable {
     }
 
     @Override
-    public boolean canBePushed() {
-        return true;
-    }
-
-    @Override
-    public boolean canBePulled() {
-        return true;
-    }
-
-    @Override
     public boolean breaksWhenMoved() {
         return false;
+    }
+
+    @Override
+    public int getWaterloggingLevel() {
+        return 1;
     }
 }

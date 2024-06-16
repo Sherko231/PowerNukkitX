@@ -30,7 +30,8 @@ import cn.nukkit.network.protocol.PlayStatusPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.network.protocol.SetCommandsEnabledPacket;
 import cn.nukkit.network.protocol.types.PacketCompressionAlgorithm;
-import cn.nukkit.player.info.PlayerInfo;
+import cn.nukkit.network.protocol.types.PlayerInfo;
+import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.registry.Registries;
 import cn.nukkit.utils.ByteBufVarInt;
 import com.github.oxo42.stateless4j.StateMachine;
@@ -52,6 +53,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,7 +61,6 @@ import java.util.function.Consumer;
 
 @Slf4j
 public class BedrockSession {
-    protected boolean logging;
     private final AtomicBoolean closed = new AtomicBoolean();
     protected final BedrockPeer peer;
     protected final int subClientId;
@@ -67,7 +68,6 @@ public class BedrockSession {
     private final AtomicBoolean nettyThreadOwned = new AtomicBoolean(false);
     private final AtomicReference<Consumer<DataPacket>> consumer = new AtomicReference<>(null);
     private final @NotNull StateMachine<SessionState, SessionState> machine;
-    protected String disconnectReason;
     private PlayerHandle handle;
     private PlayerInfo info;
     protected @Nullable PacketHandler packetHandler;
@@ -104,11 +104,17 @@ public class BedrockSession {
                 .permit(SessionState.RESOURCE_PACK, SessionState.RESOURCE_PACK);
 
         cfg.configure(SessionState.ENCRYPTION)
-                .onEntry(() -> this.setPacketHandler(new HandshakePacketHandler(this)))
+                .onEntry(() -> {
+                    log.debug("Player {} enter ENCRYPTION stage", getPeer().getSocketAddress().toString());
+                    this.setPacketHandler(new HandshakePacketHandler(this));
+                })
                 .permit(SessionState.RESOURCE_PACK, SessionState.RESOURCE_PACK);
 
         cfg.configure(SessionState.RESOURCE_PACK)
-                .onEntry(() -> this.setPacketHandler(new ResourcePackHandler(this)))
+                .onEntry(() -> {
+                    log.debug("Player {} enter RESOURCE_PACK stage", getPeer().getSocketAddress().toString());
+                    this.setPacketHandler(new ResourcePackHandler(this));
+                })
                 .permit(SessionState.PRE_SPAWN, SessionState.PRE_SPAWN);
 
         cfg.configure(SessionState.PRE_SPAWN)
@@ -160,10 +166,16 @@ public class BedrockSession {
     }
 
     public void flush() {
+        if (isDisconnected()) {
+            return;
+        }
         this.peer.flush();
     }
 
     public void sendPacket(DataPacket packet) {
+        if (isDisconnected()) {
+            return;
+        }
         DataPacketSendEvent ev = new DataPacketSendEvent(this.getPlayer(), packet);
         Server.getInstance().getPluginManager().callEvent(ev);
         if (ev.isCancelled()) {
@@ -184,6 +196,9 @@ public class BedrockSession {
     }
 
     public void sendRawPacket(int pid, @NonNull ByteBuf buf2) {
+        if (isDisconnected()) {
+            return;
+        }
         BedrockPacketCodec bedrockPacketCodec = this.peer.channel.pipeline().get(BedrockPacketCodec.class);
         ByteBuf buf1 = ByteBufAllocator.DEFAULT.ioBuffer(4);
         BedrockPacketWrapper msg = new BedrockPacketWrapper(pid, this.subClientId, 0, null, null);
@@ -195,6 +210,9 @@ public class BedrockSession {
     }
 
     public void sendPacketImmediately(@NotNull DataPacket packet) {
+        if (isDisconnected()) {
+            return;
+        }
         DataPacketSendEvent ev = new DataPacketSendEvent(this.getPlayer(), packet);
         Server.getInstance().getPluginManager().callEvent(ev);
         if (ev.isCancelled()) {
@@ -205,6 +223,9 @@ public class BedrockSession {
     }
 
     public void sendPacketSync(@NotNull DataPacket packet) {
+        if (isDisconnected()) {
+            return;
+        }
         DataPacketSendEvent ev = new DataPacketSendEvent(this.getPlayer(), packet);
         Server.getInstance().getPluginManager().callEvent(ev);
         if (ev.isCancelled()) {
@@ -241,6 +262,9 @@ public class BedrockSession {
     }
 
     public void flushSendBuffer() {
+        if (isDisconnected()) {
+            return;
+        }
         this.peer.flushSendQueue();
     }
 
@@ -276,14 +300,14 @@ public class BedrockSession {
     }
 
     protected void logOutbound(DataPacket packet) {
-        if (log.isTraceEnabled() && this.logging) {
-            log.trace("Outbound {}{}: {}", this.getSocketAddress(), this.subClientId, packet);
+        if (log.isTraceEnabled() && !Server.getInstance().isIgnoredPacket(packet.getClass())) {
+            log.trace("Outbound {}({}): {}", this.getSocketAddress(), this.subClientId, packet);
         }
     }
 
     protected void logInbound(DataPacket packet) {
-        if (log.isTraceEnabled() && this.logging) {
-            log.trace("Inbound {}{}: {}", this.getSocketAddress(), this.subClientId, packet);
+        if (log.isTraceEnabled() && !Server.getInstance().isIgnoredPacket(packet.getClass())) {
+            log.trace("Inbound {}({}): {}", this.getSocketAddress(), this.subClientId, packet);
         }
     }
 
@@ -295,47 +319,36 @@ public class BedrockSession {
         return this.subClientId != 0;
     }
 
-    public boolean isLogging() {
-        return logging;
-    }
-
-    public void setLogging(boolean logging) {
-        this.logging = logging;
-    }
-
-    public String getDisconnectReason() {
-        return disconnectReason;
-    }
-
     public boolean isDisconnected() {
         return this.closed.get();
     }
 
+    /**
+     * Close Network Session.
+     *
+     * @param reason the reason,when it is not null,will send a DisconnectPacket to client
+     */
     @ApiStatus.Internal
     public void close(@Nullable String reason) {
-        this.close(reason, false);
-    }
-
-    @ApiStatus.Internal
-    public void close(@Nullable String reason, boolean hideReason) {
         if (this.closed.get()) {
             return;
         }
 
-        DisconnectPacket packet = new DisconnectPacket();
-        if (reason == null || hideReason) {
-            packet.hideDisconnectionScreen = true;
-            reason = BedrockDisconnectReasons.DISCONNECTED;
+        //when a player haven't login,it only hold a BedrockSession,and Player Instance is null
+        if (reason != null) {
+            DisconnectPacket packet = new DisconnectPacket();
+            packet.message = reason;
+            this.sendPacketImmediately(packet);
         }
-        packet.message = reason;
-        this.sendPacketSync(packet);
 
-        if (isSubClient()) {
-            // FIXME: Do sub-clients send a server-bound DisconnectPacket?
-        } else {
-            // Primary sub-client controls the connection
-            this.peer.close(reason);
-        }
+        Server.getInstance().getScheduler().scheduleDelayedTask(InternalPlugin.INSTANCE, () -> {
+            if (isSubClient()) {
+                // FIXME: Do sub-clients send a server-bound DisconnectPacket?
+            } else {
+                // Primary sub-client controls the connection
+                this.peer.close();
+            }
+        }, 5);
     }
 
     /**
@@ -364,6 +377,9 @@ public class BedrockSession {
     }
 
     public long getPing() {
+        if (isDisconnected()) {
+            return -1L;
+        }
         return peer.getPing();
     }
 
@@ -404,9 +420,7 @@ public class BedrockSession {
 
     private void onClientSpawned() {
         log.debug("Received spawn response, entering in-game phase");
-        getPlayer().setImmobile(false); //TODO: HACK: we set this during the spawn sequence to prevent the client sending junk movements
-
-        handle.onPlayerLocallyInitialized();
+        Objects.requireNonNull(getPlayer()).setImmobile(false); //TODO: HACK: we set this during the spawn sequence to prevent the client sending junk movements
     }
 
     protected void onServerDeath() {
@@ -420,15 +434,17 @@ public class BedrockSession {
     public void handleDataPacket(DataPacket packet) {
         DataPacketReceiveEvent ev = new DataPacketReceiveEvent(this.getPlayer(), packet);
         Server.getInstance().getPluginManager().callEvent(ev);
-        if (ev.isCancelled()) {
+
+        if (ev.isCancelled())
             return;
-        }
-        if (this.packetHandler != null) {
-            if (this.packetHandler instanceof InGamePacketHandler i) {
-                i.managerHandle(packet);
-            } else {
-                packet.handle(this.packetHandler);
-            }
+
+        if (this.packetHandler == null)
+            return;
+
+        if (this.packetHandler instanceof InGamePacketHandler i) {
+            i.managerHandle(packet);
+        } else {
+            packet.handle(this.packetHandler);
         }
     }
 
@@ -460,13 +476,16 @@ public class BedrockSession {
         AvailableCommandsPacket pk = new AvailableCommandsPacket();
         Map<String, CommandDataVersions> data = new HashMap<>();
         int count = 0;
-        for (Command command : Server.getInstance().getCommandMap().getCommands().values()) {
-            if (!command.testPermissionSilent(this.getPlayer()) || !command.isRegistered() || command.isServerSideOnly()) {
-                continue;
+        final Map<String, Command> commands = Server.getInstance().getCommandMap().getCommands();
+        synchronized (commands) {
+            for (Command command : commands.values()) {
+                if (!command.testPermissionSilent(this.getPlayer()) || !command.isRegistered() || command.isServerSideOnly()) {
+                    continue;
+                }
+                ++count;
+                CommandDataVersions data0 = command.generateCustomCommandData(this.getPlayer());
+                data.put(command.getName(), data0);
             }
-            ++count;
-            CommandDataVersions data0 = command.generateCustomCommandData(this.getPlayer());
-            data.put(command.getName(), data0);
         }
         if (count > 0) {
             //TODO: structure checking
@@ -487,13 +506,14 @@ public class BedrockSession {
 
     public void syncInventory() {
         var player = getPlayer();
-        player.getInventory().sendHeldItem(player);
-
-        player.getInventory().sendContents(player);
-        player.getInventory().sendArmorContents(player);
-        player.getCursorInventory().sendContents(player);
-        player.getOffhandInventory().sendContents(player);
-        player.getEnderChestInventory().sendContents(player);
+        if (player != null) {
+            player.getInventory().sendHeldItem(player);
+            player.getInventory().sendContents(player);
+            player.getInventory().sendArmorContents(player);
+            player.getCursorInventory().sendContents(player);
+            player.getOffhandInventory().sendContents(player);
+            player.getEnderChestInventory().sendContents(player);
+        }
     }
 
     public void setEnableClientCommand(boolean enable) {

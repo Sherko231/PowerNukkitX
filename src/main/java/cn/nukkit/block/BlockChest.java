@@ -31,7 +31,8 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
     public static final BlockProperties PROPERTIES = new BlockProperties(CHEST, CommonBlockProperties.MINECRAFT_CARDINAL_DIRECTION);
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -44,12 +45,14 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
     }
 
     @Override
-    @NotNull public Class<? extends BlockEntityChest> getBlockEntityClass() {
+    @NotNull
+    public Class<? extends BlockEntityChest> getBlockEntityClass() {
         return BlockEntityChest.class;
     }
 
     @Override
-    @NotNull public String getBlockEntityType() {
+    @NotNull
+    public String getBlockEntityType() {
         return BlockEntity.CHEST;
     }
 
@@ -117,7 +120,7 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
     public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, @NotNull BlockFace face, double fx, double fy, double fz, @Nullable Player player) {
         setBlockFace(player != null ? BlockFace.fromHorizontalIndex(player.getDirection().getOpposite().getHorizontalIndex()) : BlockFace.SOUTH);
 
-        CompoundTag nbt = new CompoundTag().putList("Items",new ListTag<>());
+        CompoundTag nbt = new CompoundTag().putList("Items", new ListTag<>());
 
         if (item.hasCustomName()) {
             nbt.putString("CustomName", item.getCustomName());
@@ -142,8 +145,10 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
 
     /**
      * 尝试与旁边箱子连接
+     * <p>
+     * Try to pair with a chest next to it
      *
-     * @return 是否连接成功
+     * @return 是否连接成功 <br> Whether pairing was successful
      */
     protected boolean tryPair() {
         BlockEntityChest blockEntity = getBlockEntity();
@@ -161,8 +166,10 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
 
     /**
      * 寻找附近的可配对箱子
+     * <p>
+     * Search for nearby chest to pair with
      *
-     * @return 找到的可配对箱子。若没找到，则为null
+     * @return 找到的可配对箱子。若没找到，则为null <br> Chest to pair with. Null if none have been found
      */
     protected @Nullable BlockEntityChest findPair() {
         List<MinecraftCardinalDirection> universe = CommonBlockProperties.MINECRAFT_CARDINAL_DIRECTION.getValidValues();
@@ -203,9 +210,9 @@ public class BlockChest extends BlockTransparent implements Faceable, BlockEntit
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        if (player == null) {
-            return false;
-        }
+        if(isNotActivate(player)) return false;
+        Item itemInHand = player.getInventory().getItemInHand();
+        if (player.isSneaking() && !(itemInHand.isTool() || itemInHand.isNull())) return false;
 
         Block top = up();
         if (!top.isTransparent()) {

@@ -2,12 +2,16 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import io.netty.util.internal.EmptyArrays;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 /**
  * @since 15-10-13
  */
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class TextPacket extends DataPacket {
 
     public static final int NETWORK_ID = ProtocolInfo.TEXT_PACKET;
@@ -36,7 +40,11 @@ public class TextPacket extends DataPacket {
     public boolean isLocalized = false;
     public String xboxUserId = "";
     public String platformChatId = "";
-
+    /**
+     * @since v685
+     */
+    public String filteredMessage = "";
+    
     @Override
     public void decode(HandleByteBuf byteBuf) {
         this.type = byteBuf.readByte();
@@ -62,11 +70,11 @@ public class TextPacket extends DataPacket {
         }
         this.xboxUserId = byteBuf.readString();
         this.platformChatId = byteBuf.readString();
+        this.filteredMessage = byteBuf.readString();
     }
 
     @Override
     public void encode(HandleByteBuf byteBuf) {
-
         byteBuf.writeByte(this.type);
         byteBuf.writeBoolean(this.isLocalized || type == TYPE_TRANSLATION);
         switch (this.type) {
@@ -93,6 +101,7 @@ public class TextPacket extends DataPacket {
         }
         byteBuf.writeString(this.xboxUserId);
         byteBuf.writeString(this.platformChatId);
+        byteBuf.writeString(this.filteredMessage);
     }
 
     public void handle(PacketHandler handler) {

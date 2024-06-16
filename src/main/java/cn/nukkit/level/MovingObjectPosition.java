@@ -1,6 +1,5 @@
 package cn.nukkit.level;
 
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.entity.Entity;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.Vector3;
@@ -25,8 +24,6 @@ public class MovingObjectPosition {
      * Which side was hit. If its -1 then it went the full length of the ray trace.
      * Bottom = 0, Top = 1, East = 2, West = 3, North = 4, South = 5.
      */
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN", reason = "Magic numbers and not encapsulated", replaceWith = "getFaceHit(), setFaceHit(BlockFace)")
     public int sideHit;
 
     public Vector3 hitVector;
@@ -46,19 +43,6 @@ public class MovingObjectPosition {
     }
 
     
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN", reason = "Magic number in side param", replaceWith = "fromBlock(int,int,int,BlockFace,Vector3)")
-    public static MovingObjectPosition fromBlock(int x, int y, int z, int side, Vector3 hitVector) {
-        MovingObjectPosition objectPosition = new MovingObjectPosition();
-        objectPosition.typeOfHit = 0;
-        objectPosition.blockX = x;
-        objectPosition.blockY = y;
-        objectPosition.blockZ = z;
-        objectPosition.sideHit = side;
-        objectPosition.hitVector = new Vector3(hitVector.x, hitVector.y, hitVector.z);
-        return objectPosition;
-    }
-
     public static MovingObjectPosition fromEntity(Entity entity) {
         MovingObjectPosition objectPosition = new MovingObjectPosition();
         objectPosition.typeOfHit = 1;

@@ -236,7 +236,7 @@ public class PositionTrackingService implements Closeable {
     }
 
     private Iterable<Inventory> inventories(Player player) {
-        return () -> new Iterator<Inventory>() {
+        return () -> new Iterator<>() {
             int next = 0;
 
             @Override
@@ -556,11 +556,6 @@ public class PositionTrackingService implements Closeable {
         if (exception != null) {
             throw exception;
         }
-    }
-
-    @Override
-    protected void finalize() throws Throwable {
-        close();
     }
 
     private void checkClosed() throws IOException {

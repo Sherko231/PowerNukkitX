@@ -82,6 +82,9 @@ public interface Inventory {
 
     /**
      * Add some items to the inventory
+     *
+     * @param slots the items
+     * @return the remain items that can't add to the inventory
      */
     Item[] addItem(Item... slots);
 

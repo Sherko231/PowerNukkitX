@@ -6,6 +6,7 @@ import cn.nukkit.entity.data.EntityDataType;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.NukkitMath;
 import cn.nukkit.math.Vector3;
+import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 
@@ -15,6 +16,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -148,10 +150,20 @@ public class Binary {
                     stream.putVarLong((Long) applyData);
                     break;
                 case VECTOR3F:
-                    Vector3 v3data = (Vector3) applyData;
-                    stream.putLFloat((float) v3data.x);
-                    stream.putLFloat((float) v3data.y);
-                    stream.putLFloat((float) v3data.z);
+                    float x, y, z;
+                    if (applyData instanceof Vector3 vector3) {
+                        x = (float) vector3.x;
+                        y = (float) vector3.y;
+                        z = (float) vector3.z;
+                    } else {
+                        Vector3f v3data = (Vector3f) applyData;
+                        x = v3data.x;
+                        y = v3data.y;
+                        z = v3data.z;
+                    }
+                    stream.putLFloat(x);
+                    stream.putLFloat(y);
+                    stream.putLFloat(z);
                     break;
                 default:
                     throw new UnsupportedOperationException("Unknown entity data type " + format);
@@ -378,7 +390,7 @@ public class Binary {
             }
             stringBuilder.append(hv);
         }
-        return stringBuilder.toString().toUpperCase();
+        return stringBuilder.toString().toUpperCase(Locale.ENGLISH);
     }
 
     public static byte[] hexStringToBytes(String hexString) {
@@ -386,7 +398,7 @@ public class Binary {
             return null;
         }
         String str = "0123456789ABCDEF";
-        hexString = hexString.toUpperCase().replace(" ", "");
+        hexString = hexString.toUpperCase(Locale.ENGLISH).replace(" ", "");
         int length = hexString.length() / 2;
         char[] hexChars = hexString.toCharArray();
         byte[] d = new byte[length];

@@ -1,11 +1,11 @@
 package cn.nukkit.inventory;
 
 import cn.nukkit.Player;
-
-
 import cn.nukkit.blockentity.BlockEntityStructBlock;
+import cn.nukkit.event.inventory.InventoryCloseEvent;
 import cn.nukkit.event.inventory.InventoryOpenEvent;
 import cn.nukkit.item.Item;
+import cn.nukkit.network.protocol.ContainerClosePacket;
 import cn.nukkit.network.protocol.ContainerOpenPacket;
 import org.jetbrains.annotations.NotNull;
 
@@ -199,6 +199,10 @@ public class StructBlockInventory implements Inventory {
 
     @Override
     public boolean open(Player who) {
+        if(who.getWindowId(this)!=-1){//todo hack, ContainerClosePacket no longer triggers for command block and struct block, finding the correct way to close them
+            who.removeWindow(this);
+        }
+
         InventoryOpenEvent ev = new InventoryOpenEvent(this, who);
         who.getServer().getPluginManager().callEvent(ev);
         if (ev.isCancelled()) {
@@ -210,11 +214,18 @@ public class StructBlockInventory implements Inventory {
 
     @Override
     public void close(Player who) {
+        InventoryCloseEvent ev = new InventoryCloseEvent(this, who);
+        who.getServer().getPluginManager().callEvent(ev);
         this.onClose(who);
     }
 
     @Override
     public void onClose(Player who) {
+        ContainerClosePacket pk = new ContainerClosePacket();
+        pk.windowId = who.getWindowId(this);
+        pk.wasServerInitiated = who.getClosingWindowId() != pk.windowId;
+        pk.type = getType();
+        who.dataPacket(pk);
         this.viewers.remove(who);
     }
 

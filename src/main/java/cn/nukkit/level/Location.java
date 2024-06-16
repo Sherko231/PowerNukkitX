@@ -8,10 +8,8 @@ import org.jetbrains.annotations.NotNull;
  * @author MagicDroidX (Nukkit Project)
  */
 public class Location extends Position {
-
     public double yaw;
     public double pitch;
-
     public double headYaw;
 
     public Location() {
@@ -157,11 +155,6 @@ public class Location extends Position {
     @Override
     public Location add(Vector3 x) {
         return new Location(this.x + x.getX(), this.y + x.getY(), this.z + x.getZ(), this.yaw, this.pitch, this.headYaw, this.level);
-    }
-
-    @Override
-    public Location subtract() {
-        return this.subtract(0, 0, 0);
     }
 
     @Override

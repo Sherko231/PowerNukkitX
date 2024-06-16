@@ -4,7 +4,7 @@ import cn.nukkit.level.DimensionData;
 import cn.nukkit.level.GameRules;
 import cn.nukkit.level.Level;
 import cn.nukkit.math.Vector3;
-import cn.nukkit.scheduler.AsyncTask;
+import it.unimi.dsi.fastutil.Pair;
 
 import java.util.Map;
 
@@ -17,41 +17,41 @@ public interface LevelProvider {
 
     DimensionData getDimensionData();
 
-    AsyncTask requestChunkTask(int X, int Z);
+    Pair<byte[], Integer> requestChunkData(int x, int z);
 
     String getPath();
 
-    IChunk getLoadedChunk(int X, int Z);
+    IChunk getLoadedChunk(int x, int z);
 
     IChunk getLoadedChunk(long hash);
 
-    IChunk getChunk(int X, int Z);
+    IChunk getChunk(int x, int z);
 
-    IChunk getChunk(int X, int Z, boolean create);
+    IChunk getChunk(int x, int z, boolean create);
 
     IChunk getEmptyChunk(int x, int z);
 
     void saveChunks();
 
-    void saveChunk(int X, int Z);
+    void saveChunk(int x, int z);
 
-    void saveChunk(int X, int Z, IChunk chunk);
+    void saveChunk(int x, int z, IChunk chunk);
 
     void unloadChunks();
 
-    boolean loadChunk(int X, int Z);
+    boolean loadChunk(int x, int z);
 
-    boolean loadChunk(int X, int Z, boolean create);
+    boolean loadChunk(int x, int z, boolean create);
 
-    boolean unloadChunk(int X, int Z);
+    boolean unloadChunk(int x, int z);
 
-    boolean unloadChunk(int X, int Z, boolean safe);
+    boolean unloadChunk(int x, int z, boolean safe);
 
-    boolean isChunkGenerated(int X, int Z);
+    boolean isChunkGenerated(int x, int z);
 
-    boolean isChunkPopulated(int X, int Z);
+    boolean isChunkPopulated(int x, int z);
 
-    boolean isChunkLoaded(int X, int Z);
+    boolean isChunkLoaded(int x, int z);
 
     boolean isChunkLoaded(long hash);
 
@@ -92,11 +92,6 @@ public interface LevelProvider {
     void setSpawn(Vector3 pos);
 
     Map<Long, IChunk> getLoadedChunks();
-
-    void doGarbageCollection();
-
-    default void doGarbageCollection(long time) {
-    }
 
     Level getLevel();
 

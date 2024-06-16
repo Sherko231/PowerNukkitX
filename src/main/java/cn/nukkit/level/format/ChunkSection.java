@@ -3,12 +3,16 @@ package cn.nukkit.level.format;
 import cn.nukkit.block.Block;
 import cn.nukkit.block.BlockAir;
 import cn.nukkit.block.BlockState;
+import cn.nukkit.level.Level;
 import cn.nukkit.level.biome.BiomeID;
+import cn.nukkit.level.format.bitarray.BitArrayVersion;
+import cn.nukkit.level.format.palette.BlockPalette;
 import cn.nukkit.level.format.palette.Palette;
 import cn.nukkit.level.util.NibbleArray;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.registry.Registries;
 import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import java.util.ArrayList;
@@ -25,7 +29,7 @@ import static cn.nukkit.level.format.IChunk.index;
  */
 @NotThreadSafe
 public record ChunkSection(byte y,
-                           Palette<BlockState>[] blockLayer,
+                           BlockPalette[] blockLayer,
                            Palette<Integer> biomes,
                            NibbleArray blockLights,
                            NibbleArray skyLights,
@@ -36,16 +40,17 @@ public record ChunkSection(byte y,
 
     public ChunkSection(byte sectionY) {
         this(sectionY,
-                new Palette[]{new Palette<>(BlockAir.PROPERTIES.getDefaultState()), new Palette<>(BlockAir.PROPERTIES.getDefaultState())},
+                new BlockPalette[]{new BlockPalette(BlockAir.PROPERTIES.getDefaultState(), new ReferenceArrayList<>(16), BitArrayVersion.V2),
+                        new BlockPalette(BlockAir.PROPERTIES.getDefaultState(), new ReferenceArrayList<>(16), BitArrayVersion.V2)},
                 new Palette<>(BiomeID.PLAINS),
                 new NibbleArray(SIZE),
                 new NibbleArray(SIZE),
                 new AtomicLong(0));
     }
 
-    public ChunkSection(byte sectionY, Palette<BlockState>[] blockLayer) {
+    public ChunkSection(byte sectionY, BlockPalette[] blockLayer) {
         this(sectionY, blockLayer,
-                new Palette<>(1),
+                new Palette<>(BiomeID.PLAINS),
                 new NibbleArray(SIZE),
                 new NibbleArray(SIZE),
                 new AtomicLong(0));
@@ -110,9 +115,7 @@ public record ChunkSection(byte y,
                     current.y = offsetY + y;
                     BlockState state = blockLayer[0].get(index(x, y, z));
                     if (condition.test(current, state)) {
-                        current.y -= provider.getDimensionData().getMinHeight();
                         results.add(Registries.BLOCK.get(state, current.x, current.y, current.z, provider.getLevel()));
-                        current.y += provider.getDimensionData().getMinHeight();
                     }
                 }
             }
@@ -124,6 +127,11 @@ public record ChunkSection(byte y,
         return blockLayer[0].isEmpty() && blockLayer[0].get(0) == BlockAir.PROPERTIES.getDefaultState();
     }
 
+    public void setNeedReObfuscate() {
+        blockLayer[0].setNeedReObfuscate();
+        blockLayer[1].setNeedReObfuscate();
+    }
+
     public void writeToBuf(ByteBuf byteBuf) {
         byteBuf.writeByte(VERSION);
         //block layer count
@@ -132,5 +140,15 @@ public record ChunkSection(byte y,
 
         blockLayer[0].writeToNetwork(byteBuf, BlockState::blockStateHash);
         blockLayer[1].writeToNetwork(byteBuf, BlockState::blockStateHash);
+    }
+
+    public void writeObfuscatedToBuf(Level level, ByteBuf byteBuf) {
+        byteBuf.writeByte(VERSION);
+        //block layer count
+        byteBuf.writeByte(LAYER_COUNT);
+        byteBuf.writeByte(y);
+
+        blockLayer[0].writeObfuscatedToNetwork(level, blockChanges, byteBuf, BlockState::blockStateHash);
+        blockLayer[1].writeObfuscatedToNetwork(level, blockChanges, byteBuf, BlockState::blockStateHash);
     }
 }

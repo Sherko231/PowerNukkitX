@@ -109,18 +109,13 @@ public class BlockCandleCake extends BlockTransparent {
         return 0;
     }
 
-    protected BlockCandle toCandleForm() {
+    public BlockCandle toCandleForm() {
         return new BlockCandle();
     }
 
     @Override
     public Item[] getDrops(Item item) {
         return new Item[]{toCandleForm().toItem()};
-    }
-
-    @Override
-    public Item toItem() {
-        return Item.get(ItemID.CAKE);
     }
 
     @SuppressWarnings("DuplicatedCode")

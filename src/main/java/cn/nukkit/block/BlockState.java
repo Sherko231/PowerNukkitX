@@ -1,7 +1,9 @@
 package cn.nukkit.block;
 
 import cn.nukkit.block.property.type.BlockPropertyType;
+import cn.nukkit.item.Item;
 import cn.nukkit.level.Position;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.CompoundTagView;
 import cn.nukkit.registry.Registries;
 import org.jetbrains.annotations.Unmodifiable;
@@ -16,6 +18,10 @@ import java.util.List;
  */
 @Unmodifiable
 public interface BlockState {
+    static BlockState makeUnknownBlockState(int hash, CompoundTag blockTag) {
+        return BlockStateImpl.makeUnknownBlockState(hash, blockTag);
+    }
+
     static short computeSpecialValue(BlockPropertyType.BlockPropertyValue<?, ?, ?>[] propertyValues) {
         byte specialValueBits = 0;
         for (var value : propertyValues) specialValueBits += value.getPropertyType().getBitSize();
@@ -63,5 +69,9 @@ public interface BlockState {
 
     default Block toBlock(Position position) {
         return Block.get(this, position);
+    }
+
+    default Item toItem() {
+        return toBlock().toItem();
     }
 }

@@ -20,15 +20,7 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 
 /**
  * @author MagicDroidX (Nukkit Project)
@@ -136,8 +128,8 @@ public abstract class BaseInventory implements Inventory {
 
         item = item.clone();
         InventoryHolder holder = this.getHolder();
-        if (holder instanceof Entity) {
-            EntityInventoryChangeEvent ev = new EntityInventoryChangeEvent((Entity) holder, this.getItem(index), item, index);
+        if (holder instanceof Entity entity) {
+            EntityInventoryChangeEvent ev = new EntityInventoryChangeEvent(entity, this.getItem(index), item, index);
             Server.getInstance().getPluginManager().callEvent(ev);
             if (ev.isCancelled()) {
                 this.sendSlot(index, this.getViewers());
@@ -147,8 +139,8 @@ public abstract class BaseInventory implements Inventory {
             item = ev.getNewItem();
         }
 
-        if (holder instanceof BlockEntity) {
-            ((BlockEntity) holder).setDirty();
+        if (holder instanceof BlockEntity blockEntity) {
+            blockEntity.setDirty();
         }
 
         Item old = this.getUnclonedItem(index);
@@ -240,11 +232,10 @@ public abstract class BaseInventory implements Inventory {
     public boolean canAddItem(Item item) {
         item = item.clone();
         boolean checkDamage = item.hasMeta();
-        boolean checkBlock = item.isBlock();
         boolean checkTag = item.getCompoundTag() != null;
         for (int i = 0; i < this.getSize(); ++i) {
             Item slot = this.getUnclonedItem(i);
-            if (item.equals(slot, checkDamage, checkBlock, checkTag)) {
+            if (item.equals(slot, checkDamage, checkTag)) {
                 int diff;
                 if ((diff = Math.min(slot.getMaxStackSize(), this.getMaxStackSize()) - slot.getCount()) > 0) {
                     item.setCount(item.getCount() - diff);
@@ -451,15 +442,14 @@ public abstract class BaseInventory implements Inventory {
             this.sendSlot(index, this.getViewers());
         }
 
-        if (holder instanceof BlockEntity) {
-            ((BlockEntity) holder).setDirty();
+        if (holder instanceof BlockEntity blockEntity) {
+            blockEntity.setDirty();
         }
 
-        if (before.getId() == ItemID.LODESTONE_COMPASS || getUnclonedItem(index).getId() == ItemID.LODESTONE_COMPASS) {
-            if (holder instanceof Player) {
-                ((Player) holder).updateTrackingPositions(true);
+        if (Objects.equals(before.getId(), ItemID.LODESTONE_COMPASS) || Objects.equals(getUnclonedItem(index).getId(), ItemID.LODESTONE_COMPASS)) {
+            if (holder instanceof Player p) {
+                p.updateTrackingPositions(true);
             }
-
             getViewers().forEach(p -> p.updateTrackingPositions(true));
         }
 

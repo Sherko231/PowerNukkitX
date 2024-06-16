@@ -1,9 +1,10 @@
 package cn.nukkit.recipe;
 
 import cn.nukkit.item.Item;
+import cn.nukkit.network.protocol.types.RecipeUnlockingRequirement;
 import cn.nukkit.recipe.descriptor.DefaultDescriptor;
 import cn.nukkit.recipe.descriptor.ItemDescriptor;
-import cn.nukkit.registry.Registries;
+import cn.nukkit.registry.RecipeRegistry;
 
 import java.util.Collection;
 import java.util.List;
@@ -17,7 +18,7 @@ import static cn.nukkit.recipe.RecipeType.SHULKER_BOX;
  */
 public class ShulkerBoxRecipe extends ShapelessRecipe {
     public ShulkerBoxRecipe(Item result, Collection<Item> ingredients) {
-        super(result, ingredients);
+        this(null, 10, result, ingredients);
     }
 
     public ShulkerBoxRecipe(String recipeId, int priority, Item result, Collection<Item> ingredients) {
@@ -29,7 +30,11 @@ public class ShulkerBoxRecipe extends ShapelessRecipe {
     }
 
     public ShulkerBoxRecipe(String recipeId, UUID uuid, int priority, Item result, List<ItemDescriptor> ingredients) {
-        super(recipeId == null ? Registries.RECIPE.computeRecipeId(List.of(result), ingredients, SHULKER_BOX) : recipeId, uuid, priority, result, ingredients);
+        this(recipeId, null, priority, result, ingredients, null);
+    }
+
+    public ShulkerBoxRecipe(String recipeId, UUID uuid, int priority, Item result, List<ItemDescriptor> ingredients, RecipeUnlockingRequirement recipeUnlockingRequirement) {
+        super(recipeId == null ? RecipeRegistry.computeRecipeId(List.of(result), ingredients, SHULKER_BOX) : recipeId, uuid, priority, result, ingredients, recipeUnlockingRequirement);
     }
 
     @Override

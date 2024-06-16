@@ -18,7 +18,6 @@ import cn.nukkit.utils.RedstoneComponent;
 import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
-
 import java.util.Objects;
 
 public class BlockLectern extends BlockTransparent implements RedstoneComponent, Faceable, BlockEntityHolder<BlockEntityLectern> {
@@ -64,7 +63,7 @@ public class BlockLectern extends BlockTransparent implements RedstoneComponent,
 
     @Override
     public double getHardness() {
-        return 2;
+        return 2.5;
     }
 
     @Override
@@ -119,6 +118,7 @@ public class BlockLectern extends BlockTransparent implements RedstoneComponent,
 
     @Override
     public boolean onActivate(@NotNull Item item, @Nullable Player player, BlockFace blockFace, float fx, float fy, float fz) {
+        if(isNotActivate(player)) return false;
         BlockEntityLectern lectern = getOrCreateBlockEntity();
         Item currentBook = lectern.getBook();
         if (!currentBook.isNull()) {

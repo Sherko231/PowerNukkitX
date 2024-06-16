@@ -1,6 +1,8 @@
 package cn.nukkit.item;
 
-import cn.nukkit.block.Block;
+import cn.nukkit.block.BlockID;
+import cn.nukkit.block.BlockSkull;
+import cn.nukkit.block.property.CommonBlockProperties;
 
 /**
  * @author Snake1999
@@ -23,36 +25,47 @@ public class ItemSkull extends Item {
     }
 
     public ItemSkull(Integer meta, int count) {
-        super(SKULL, meta, count, "Skull");
-        this.block = Block.get(Block.SKULL);
-        updateName();
+        super(BlockID.SKULL, meta, count);
     }
 
-    @Override
-    public void setDamage(int meta) {
-        super.setDamage(meta);
-        updateName();
-    }
-
-    private void updateName() {
-        name = getItemSkullName(getDamage());
+    public void internalAdjust() {
+        switch (getDamage()) {
+            case SKELETON_SKULL, 6, 7 -> {
+                name = "Skeleton Skull";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(0)).toBlock());
+            }
+            case WITHER_SKELETON_SKULL -> {
+                name = "Wither Skeleton Skull";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(1)).toBlock());
+            }
+            case ZOMBIE_HEAD -> {
+                name = "Zombie Head";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(2)).toBlock());
+            }
+            case HEAD -> {
+                name = "Head";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(3)).toBlock());
+            }
+            case CREEPER_HEAD -> {
+                name = "Creeper Head";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(4)).toBlock());
+            }
+            case DRAGON_HEAD -> {
+                name = "Dragon Head";
+                setBlockUnsafe(BlockSkull.PROPERTIES.getBlockState(CommonBlockProperties.FACING_DIRECTION.createValue(5)).toBlock());
+            }
+            default -> throw new IllegalArgumentException("Invalid damage: " + getDamage());
+        }
     }
 
     public static String getItemSkullName(int meta) {
-        switch (meta) {
-            case 1:
-                return "Wither Skeleton Skull";
-            case 2:
-                return "Zombie Head";
-            case 3:
-                return "Head";
-            case 4:
-                return "Creeper Head";
-            case 5:
-                return "Dragon Head";
-            case 0:
-            default:
-                return "Skeleton Skull";
-        }
+        return switch (meta) {
+            case 1 -> "Wither Skeleton Skull";
+            case 2 -> "Zombie Head";
+            case 3 -> "Head";
+            case 4 -> "Creeper Head";
+            case 5 -> "Dragon Head";
+            default -> "Skeleton Skull";
+        };
     }
 }

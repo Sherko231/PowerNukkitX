@@ -5,7 +5,10 @@ import cn.nukkit.block.property.enums.WoodType;
 import cn.nukkit.item.Item;
 import org.jetbrains.annotations.NotNull;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import java.util.Locale;
+
+import static cn.nukkit.block.property.CommonBlockProperties.PERSISTENT_BIT;
+import static cn.nukkit.block.property.CommonBlockProperties.UPDATE_BIT;
 
 
 public class BlockCherryLeaves extends BlockLeaves {
@@ -31,14 +34,15 @@ public class BlockCherryLeaves extends BlockLeaves {
         return "Cherry Leaves";
     }
 
-    @Override
-    protected Item getSapling() {
-        return new BlockCherrySapling().toItem();
-    }
     /*这里写木质类型为BIRCH只是为了获取凋落物时的概率正确，并不代表真的就是白桦木*/
 
     @Override
     public WoodType getType() {
-        return WoodType.valueOf(OldLeafType.BIRCH.name().toUpperCase());
+        return WoodType.valueOf(OldLeafType.BIRCH.name().toUpperCase(Locale.ENGLISH));
+    }
+
+    @Override
+    public Item toSapling() {
+        return Item.get(CHERRY_SAPLING);
     }
 }

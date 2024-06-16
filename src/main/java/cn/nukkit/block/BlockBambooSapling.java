@@ -3,6 +3,7 @@ package cn.nukkit.block;
 import cn.nukkit.Player;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.enums.BambooLeafSize;
+import cn.nukkit.block.property.enums.WoodType;
 import cn.nukkit.event.block.BlockGrowEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBlock;
@@ -14,11 +15,12 @@ import org.jetbrains.annotations.NotNull;
 import java.util.concurrent.ThreadLocalRandom;
 
 
-public class BlockBambooSapling extends BlockFlowable {
-    public static final BlockProperties PROPERTIES = new BlockProperties(BAMBOO_SAPLING, CommonBlockProperties.AGE_BIT, CommonBlockProperties.SAPLING_TYPE);
+public class BlockBambooSapling extends BlockSapling {
+    public static final BlockProperties PROPERTIES = new BlockProperties(BAMBOO_SAPLING, CommonBlockProperties.AGE_BIT);
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -28,6 +30,11 @@ public class BlockBambooSapling extends BlockFlowable {
 
     public BlockBambooSapling(BlockState blockstate) {
         super(blockstate);
+    }
+
+    @Override
+    public WoodType getWoodType() {
+        return null;
     }
 
     @Override
@@ -86,11 +93,6 @@ public class BlockBambooSapling extends BlockFlowable {
     }
 
     @Override
-    public boolean canBeActivated() {
-        return true;
-    }
-
-    @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
         if (item.isFertilizer()) {
 
@@ -124,7 +126,7 @@ public class BlockBambooSapling extends BlockFlowable {
 
     private boolean isSupportInvalid() {
         return switch (down().getId()) {
-            case BAMBOO, DIRT, GRASS, SAND, GRAVEL, PODZOL, BAMBOO_SAPLING, MOSS_BLOCK -> false;
+            case BAMBOO, DIRT, GRASS_BLOCK, SAND, GRAVEL, PODZOL, BAMBOO_SAPLING, MOSS_BLOCK -> false;
             default -> true;
         };
     }
@@ -174,10 +176,4 @@ public class BlockBambooSapling extends BlockFlowable {
     public double getMaxY() {
         return y + 0.875;
     }
-
-    @Override
-    public boolean isFertilizable() {
-        return true;
-    }
-
 }

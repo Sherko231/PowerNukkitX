@@ -13,6 +13,7 @@ import cn.nukkit.math.BlockVector3;
 import cn.nukkit.math.Vector2f;
 import cn.nukkit.math.Vector3f;
 import cn.nukkit.nbt.NBTIO;
+import cn.nukkit.nbt.stream.LittleEndianByteBufInputStreamNBTInputStream;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
 import cn.nukkit.nbt.tag.StringTag;
@@ -23,26 +24,22 @@ import cn.nukkit.network.protocol.types.itemstack.request.ItemStackRequestSlotDa
 import cn.nukkit.network.protocol.types.itemstack.request.TextProcessingEventOrigin;
 import cn.nukkit.network.protocol.types.itemstack.request.action.*;
 import cn.nukkit.recipe.descriptor.ComplexAliasDescriptor;
+import cn.nukkit.recipe.descriptor.DefaultDescriptor;
 import cn.nukkit.recipe.descriptor.DeferredDescriptor;
+import cn.nukkit.recipe.descriptor.InvalidDescriptor;
 import cn.nukkit.recipe.descriptor.ItemDescriptor;
 import cn.nukkit.recipe.descriptor.ItemDescriptorType;
 import cn.nukkit.recipe.descriptor.ItemTagDescriptor;
 import cn.nukkit.recipe.descriptor.MolangDescriptor;
 import cn.nukkit.registry.Registries;
-import cn.nukkit.utils.Binary;
-import cn.nukkit.utils.ByteBufVarInt;
-import cn.nukkit.utils.LittleEndianByteBufOutputStream;
-import cn.nukkit.utils.OptionalValue;
-import cn.nukkit.utils.PersonaPiece;
-import cn.nukkit.utils.PersonaPieceTint;
-import cn.nukkit.utils.SerializedImage;
-import cn.nukkit.utils.SkinAnimation;
+import cn.nukkit.utils.*;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufInputStream;
 import io.netty.util.ByteProcessor;
 import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.StringUtil;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import lombok.SneakyThrows;
 import lombok.val;
 
@@ -63,6 +60,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiConsumer;
@@ -1098,7 +1096,7 @@ public class HandleByteBuf extends ByteBuf {
         }
 
         int count = readShortLE();
-        int damage = (int) readUnsignedVarInt();
+        int damage = readUnsignedVarInt();
 
         Integer netId = null;
         if (!instanceItem) {
@@ -1132,14 +1130,16 @@ public class HandleByteBuf extends ByteBuf {
         readBytes(bytes);
         ByteBuf buf = ByteBufAllocator.DEFAULT.ioBuffer(bytes.length);
         buf.writeBytes(bytes);
-        try (ByteBufInputStream stream = new ByteBufInputStream(buf)) {
+        try (LittleEndianByteBufInputStream stream = new LittleEndianByteBufInputStream(buf)) {
             int nbtSize = stream.readShort();
             if (nbtSize > 0) {
-                compoundTag = NBTIO.read(stream, ByteOrder.LITTLE_ENDIAN, false);
+                LittleEndianByteBufInputStreamNBTInputStream ls = new LittleEndianByteBufInputStreamNBTInputStream(stream);
+                compoundTag = (CompoundTag) ls.readTag();
             } else if (nbtSize == -1) {
                 int tagCount = stream.readUnsignedByte();
                 if (tagCount != 1) throw new IllegalArgumentException("Expected 1 tag but got " + tagCount);
-                compoundTag = NBTIO.read(stream, ByteOrder.LITTLE_ENDIAN, false);
+                LittleEndianByteBufInputStreamNBTInputStream ls = new LittleEndianByteBufInputStreamNBTInputStream(stream);
+                compoundTag = (CompoundTag) ls.readTag();
             }
 
             canPlace = new String[stream.readInt()];
@@ -1231,8 +1231,7 @@ public class HandleByteBuf extends ByteBuf {
                 stream.writeLong(0);//BlockingTicks // todo add BlockingTicks to Item Class. Find out what Blocking Ticks are
             }
 
-            byte[] bytes = new byte[userDataBuf.readableBytes()];
-            userDataBuf.readBytes(bytes);
+            byte[] bytes = Utils.convertByteBuf2Array(userDataBuf);
             writeByteArray(bytes);
         } catch (IOException e) {
             throw new IllegalStateException("Unable to write item user data", e);
@@ -1241,7 +1240,33 @@ public class HandleByteBuf extends ByteBuf {
         }
     }
 
-    public void writeRecipeIngredient(ItemDescriptor itemDescriptor) {
+    public ItemDescriptor readRecipeIngredient() {
+        ItemDescriptorType type = ItemDescriptorType.values()[readUnsignedByte()];
+        ItemDescriptor descriptor;
+        switch (type) {
+            case DEFAULT:
+                int itemId = readShortLE();
+                int auxValue = itemId != 0 ? readShortLE() : 0;
+                Item item = itemId == 0 ? Item.AIR : Item.get(Registries.ITEM_RUNTIMEID.getIdentifier(itemId), auxValue, readVarInt());
+                descriptor = new DefaultDescriptor(item);
+                break;
+            case MOLANG:
+                descriptor = new MolangDescriptor(this.readString(), readUnsignedByte(), readVarInt());
+                break;
+            case ITEM_TAG:
+                descriptor = new ItemTagDescriptor(this.readString(), readVarInt());
+                break;
+            case DEFERRED:
+                descriptor = new DeferredDescriptor(this.readString(), readShortLE(), readVarInt());
+                break;
+            default:
+                descriptor = InvalidDescriptor.INSTANCE;
+                break;
+        }
+        return descriptor;
+    }
+
+    public void writeRecipeIngredient(cn.nukkit.recipe.descriptor.ItemDescriptor itemDescriptor) {
         ItemDescriptorType type = itemDescriptor.getType();
         this.writeByte((byte) type.ordinal());
         switch (type) {
@@ -1315,7 +1340,7 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public BlockVector3 readBlockVector3() {
-        return new BlockVector3(this.readVarInt(), (int) this.readUnsignedVarInt(), this.readVarInt());
+        return new BlockVector3(this.readVarInt(), this.readUnsignedVarInt(), this.readVarInt());
     }
 
     public void writeBlockVector3(BlockVector3 v) {
@@ -1324,7 +1349,7 @@ public class HandleByteBuf extends ByteBuf {
 
     public void writeBlockVector3(int x, int y, int z) {
         this.writeVarInt(x);
-        this.writeUnsignedVarInt((int) Integer.toUnsignedLong(y));
+        this.writeUnsignedVarInt(y);
         this.writeVarInt(z);
     }
 
@@ -1362,7 +1387,7 @@ public class HandleByteBuf extends ByteBuf {
 
         this.writeUnsignedVarInt(rules.size());
         rules.forEach((gameRule, value) -> {
-            this.writeString(gameRule.getName().toLowerCase());
+            this.writeString(gameRule.getName().toLowerCase(Locale.ENGLISH));
             value.write(this);
         });
     }
@@ -1424,7 +1449,7 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public <T> void writeArray(Collection<T> collection, Consumer<T> writer) {
-        if (collection == null) {
+        if (collection == null || collection.isEmpty()) {
             writeUnsignedVarInt(0);
             return;
         }
@@ -1433,7 +1458,7 @@ public class HandleByteBuf extends ByteBuf {
     }
 
     public <T> void writeArray(T[] collection, Consumer<T> writer) {
-        if (collection == null) {
+        if (collection == null || collection.length == 0) {
             writeUnsignedVarInt(0);
             return;
         }
@@ -1498,17 +1523,25 @@ public class HandleByteBuf extends ByteBuf {
 
     protected ItemStackRequestAction readRequestActionData(ItemStackRequestActionType type) {
         return switch (type) {
-            case CRAFT_REPAIR_AND_DISENCHANT -> new CraftGrindstoneAction((int) readUnsignedInt(), readVarInt());
+            case CRAFT_REPAIR_AND_DISENCHANT -> new CraftGrindstoneAction(readUnsignedVarInt(), readVarInt());
             case CRAFT_LOOM -> new CraftLoomAction(readString());
-            case CRAFT_RECIPE_AUTO -> new AutoCraftRecipeAction(
-                    (int) readUnsignedInt(), readUnsignedByte(), Collections.emptyList()
-            );
+            case CRAFT_RECIPE_AUTO -> {
+                int recipeId = readUnsignedVarInt();
+                int timesCrafted = readUnsignedByte();
+                List<ItemDescriptor> ingredients = new ObjectArrayList<>();
+                readArray(ingredients, HandleByteBuf::readUnsignedByte, HandleByteBuf::readRecipeIngredient);
+                yield new AutoCraftRecipeAction(
+                        recipeId,
+                        timesCrafted,
+                        ingredients
+                );
+            }
             case CRAFT_RESULTS_DEPRECATED -> new CraftResultsDeprecatedAction(
                     readArray(Item.class, (s) -> s.readSlot(true)),
                     readUnsignedByte()
             );
             case MINE_BLOCK -> new MineBlockAction(readVarInt(), readVarInt(), readVarInt());
-            case CRAFT_RECIPE_OPTIONAL -> new CraftRecipeOptionalAction((int) readUnsignedInt(), readIntLE());
+            case CRAFT_RECIPE_OPTIONAL -> new CraftRecipeOptionalAction(readUnsignedVarInt(), readIntLE());
             case TAKE -> new TakeAction(
                     readUnsignedByte(),
                     readStackRequestSlotInfo(),

@@ -17,6 +17,7 @@ import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
 import cn.nukkit.math.SimpleAxisAlignedBB;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.network.protocol.types.SpawnPointType;
 import cn.nukkit.utils.DyeColor;
 import cn.nukkit.utils.Faceable;
 import cn.nukkit.utils.TextFormat;
@@ -25,7 +26,9 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import static cn.nukkit.block.property.CommonBlockProperties.DIRECTION;
+import static cn.nukkit.block.property.CommonBlockProperties.HEAD_PIECE_BIT;
+import static cn.nukkit.block.property.CommonBlockProperties.OCCUPIED_BIT;
 
 /**
  * @author MagicDroidX (Nukkit Project)
@@ -91,7 +94,7 @@ public class BlockBed extends BlockTransparent implements Faceable, BlockEntityH
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-
+        if(isNotActivate(player)) return false;
         BlockFace dir = getBlockFace();
 
         boolean shouldExplode = this.level.getDimension() != Level.DIMENSION_OVERWORLD;
@@ -153,7 +156,7 @@ public class BlockBed extends BlockTransparent implements Faceable, BlockEntityH
 
         Location spawn = Location.fromObject(head.add(0.5, 0.5, 0.5), player.getLevel(), player.getYaw(), player.getPitch());
         if (!player.getSpawn().equals(spawn)) {
-            player.setSpawnBlock(this);
+            player.setSpawn(this, SpawnPointType.BLOCK);
         }
         player.sendMessage(new TranslationContainer(TextFormat.GRAY + "%tile.bed.respawnSet"));
 

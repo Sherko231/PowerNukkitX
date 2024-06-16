@@ -31,7 +31,7 @@ public abstract class BlockLiquid extends BlockTransparent {
     protected Vector3 flowVector = null;
     private final Long2ByteMap flowCostVisited = new Long2ByteOpenHashMap();
 
-    protected BlockLiquid(BlockState state) {
+    public BlockLiquid(BlockState state) {
         super(state);
     }
 
@@ -481,6 +481,11 @@ public abstract class BlockLiquid extends BlockTransparent {
         }
     }
 
+    /**
+     * Gets a liquid block instance with a new depth.
+     *
+     * @param depth the new depth
+     */
     public abstract BlockLiquid getLiquidWithNewDepth(int depth);
 
     @Override

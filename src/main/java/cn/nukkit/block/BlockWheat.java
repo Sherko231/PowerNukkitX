@@ -1,10 +1,12 @@
 package cn.nukkit.block;
 
+import cn.nukkit.Player;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
 import cn.nukkit.item.ItemWheatSeeds;
 import cn.nukkit.item.enchantment.Enchantment;
+import cn.nukkit.math.BlockFace;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.ThreadLocalRandom;
@@ -18,7 +20,8 @@ public class BlockWheat extends BlockCrops {
     public static final BlockProperties PROPERTIES = new BlockProperties(WHEAT, CommonBlockProperties.GROWTH);
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -36,15 +39,10 @@ public class BlockWheat extends BlockCrops {
     }
 
     @Override
-    public Item toItem() {
-        return Item.get(ItemID.WHEAT_SEEDS);
-    }
-
-    @Override
     public Item[] getDrops(Item item) {
         // https://minecraft.wiki/w/Fortune#Seeds
         if (!isFullyGrown()) {
-            return new Item[]{ new ItemWheatSeeds() };
+            return new Item[]{new ItemWheatSeeds()};
         }
 
         ThreadLocalRandom random = ThreadLocalRandom.current();
@@ -59,9 +57,15 @@ public class BlockWheat extends BlockCrops {
         }
 
         if (count > 0) {
-            return new Item[]{Item.get(ItemID.WHEAT), Item.get(ItemID.WHEAT_SEEDS, 0, count)};
+            return new Item[]{toItem(), Item.get(ItemID.WHEAT_SEEDS, 0, count)};
         } else {
-            return new Item[]{Item.get(ItemID.WHEAT)};
+            return new Item[]{toItem()};
         }
+    }
+
+    @Override
+    public boolean place(@NotNull Item item, @NotNull Block block, @NotNull Block target, @NotNull BlockFace face, double fx, double fy, double fz, Player player) {
+        if (item.getId().equals(BlockID.WHEAT)) return false;
+        return super.place(item, block, target, face, fx, fy, fz, player);
     }
 }

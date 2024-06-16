@@ -101,7 +101,8 @@ public class BlockTrapdoor extends BlockTransparent implements RedstoneComponent
     }
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -171,7 +172,7 @@ public class BlockTrapdoor extends BlockTransparent implements RedstoneComponent
 
     @Override
     public int onUpdate(int type) {
-        if (type == Level.BLOCK_UPDATE_REDSTONE && this.level.getServer().isRedstoneEnabled()) {
+        if (type == Level.BLOCK_UPDATE_REDSTONE && this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             if ((this.isOpen() != this.isGettingPower()) && !this.getManualOverride()) {
                 if (this.isOpen() != this.isGettingPower()) {
                     level.getServer().getPluginManager().callEvent(new BlockRedstoneEvent(this, this.isOpen() ? 15 : 0, this.isOpen() ? 0 : 15));
@@ -214,7 +215,7 @@ public class BlockTrapdoor extends BlockTransparent implements RedstoneComponent
             return false;
         }
 
-        if (level.getServer().isRedstoneEnabled() && !this.isOpen() && this.isGettingPower()) {
+        if (level.getServer().getSettings().levelSettings().enableRedstone() && !this.isOpen() && this.isGettingPower()) {
             this.setOpen(null, true);
         }
 
@@ -223,7 +224,11 @@ public class BlockTrapdoor extends BlockTransparent implements RedstoneComponent
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        return toggle(player);
+        if (player != null) {
+            Item itemInHand = player.getInventory().getItemInHand();
+            if (player.isSneaking() && !(itemInHand.isTool() || itemInHand.isNull())) return false;
+            return toggle(player);
+        } else return false;
     }
 
     public boolean toggle(Player player) {

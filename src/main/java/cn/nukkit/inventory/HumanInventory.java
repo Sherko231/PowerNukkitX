@@ -16,13 +16,19 @@ import cn.nukkit.network.protocol.InventoryContentPacket;
 import cn.nukkit.network.protocol.InventorySlotPacket;
 import cn.nukkit.network.protocol.MobArmorEquipmentPacket;
 import cn.nukkit.network.protocol.MobEquipmentPacket;
+import cn.nukkit.network.protocol.PlayerArmorDamagePacket;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
 import org.jetbrains.annotations.Range;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -184,14 +190,108 @@ public class HumanInventory extends BaseInventory {
         }
 
         if (index >= ARMORS_INDEX) {
-            this.sendArmorSlot(index, this.getViewers());
-            this.sendArmorSlot(index, this.getHolder().getEntity().getViewers().values());
+            this.sendArmorSlot(index - ARMORS_INDEX, this.getViewers());
+            this.sendArmorSlot(index - ARMORS_INDEX, this.getHolder().getEntity().getViewers().values());
             if (this.getItem(index) instanceof ItemArmor) {
                 this.getHolder().getEntity().level.getVibrationManager().callVibrationEvent(new VibrationEvent(getHolder(), this.getHolder().getEntity(), VibrationType.EQUIP));
             }
         } else {
             super.onSlotChange(index, before, send);
+            if (index == getHeldItemIndex() && !before.equals(this.slots.get(index))) {
+                equipItem(index);
+            }
         }
+    }
+
+    @Override
+    public boolean canAddItem(Item item) {
+        item = item.clone();
+        boolean checkDamage = item.hasMeta();
+        boolean checkTag = item.getCompoundTag() != null;
+        for (int i = 0; i < ARMORS_INDEX; ++i) {
+            Item slot = this.getUnclonedItem(i);
+            if (item.equals(slot, checkDamage, checkTag)) {
+                int diff;
+                if ((diff = Math.min(slot.getMaxStackSize(), this.getMaxStackSize()) - slot.getCount()) > 0) {
+                    item.setCount(item.getCount() - diff);
+                }
+            } else if (slot.isNull()) {
+                item.setCount(item.getCount() - Math.min(slot.getMaxStackSize(), this.getMaxStackSize()));
+            }
+
+            if (item.getCount() <= 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    @Override
+    public Item[] addItem(Item... slots) {
+        List<Item> itemSlots = new ArrayList<>();
+        for (Item slot : slots) {
+            if (!slot.isNull()) {
+                //todo: clone only if necessary
+                itemSlots.add(slot.clone());
+            }
+        }
+
+        //使用FastUtils的IntArrayList提高性能
+        IntList emptySlots = new IntArrayList(this.getSize());
+
+        for (int i = 0; i < ARMORS_INDEX; ++i) {
+            //获取未克隆Item对象
+            Item item = this.getUnclonedItem(i);
+            if (item.isNull() || item.getCount() <= 0) {
+                emptySlots.add(i);
+            }
+
+            //使用迭代器而不是新建一个ArrayList
+            for (Iterator<Item> iterator = itemSlots.iterator(); iterator.hasNext(); ) {
+                Item slot = iterator.next();
+                if (slot.equals(item)) {
+                    int maxStackSize = Math.min(this.getMaxStackSize(), item.getMaxStackSize());
+                    if (item.getCount() < maxStackSize) {
+                        int amount = Math.min(maxStackSize - item.getCount(), slot.getCount());
+                        amount = Math.min(amount, this.getMaxStackSize());
+                        if (amount > 0) {
+                            //在需要clone时再clone
+                            item = item.clone();
+                            slot.setCount(slot.getCount() - amount);
+                            item.setCount(item.getCount() + amount);
+                            this.setItem(i, item);
+                            if (slot.getCount() <= 0) {
+                                iterator.remove();
+                            }
+                        }
+                    }
+                }
+            }
+            if (itemSlots.isEmpty()) {
+                break;
+            }
+        }
+
+        if (!itemSlots.isEmpty() && !emptySlots.isEmpty()) {
+            for (int slotIndex : emptySlots) {
+                if (!itemSlots.isEmpty()) {
+                    Item slot = itemSlots.get(0);
+                    int maxStackSize = Math.min(slot.getMaxStackSize(), this.getMaxStackSize());
+                    int amount = Math.min(maxStackSize, slot.getCount());
+                    amount = Math.min(amount, this.getMaxStackSize());
+                    slot.setCount(slot.getCount() - amount);
+                    Item item = slot.clone();
+                    item.setCount(amount);
+                    this.setItem(slotIndex, item);
+                    if (slot.getCount() <= 0) {
+                        itemSlots.remove(slot);
+                    }
+                }
+            }
+        }
+
+        return itemSlots.toArray(Item.EMPTY_ARRAY);
     }
 
     public int getHotbarSize() {
@@ -341,10 +441,29 @@ public class HumanInventory extends BaseInventory {
         getHolder().getOffhandInventory().clearAll();
     }
 
+    /**
+     * Send armor contents.
+     *
+     * @param players the players
+     */
+    public void sendArmorContents(Collection<Player> players) {
+        this.sendArmorContents(players.toArray(Player.EMPTY_ARRAY));
+    }
+
+    /**
+     * Send armor contents.
+     *
+     * @param player the player
+     */
     public void sendArmorContents(Player player) {
         this.sendArmorContents(new Player[]{player});
     }
 
+    /**
+     * Send armor contents.
+     *
+     * @param players the players
+     */
     public void sendArmorContents(Player[] players) {
         Item[] armor = this.getArmorContents();
 
@@ -354,9 +473,21 @@ public class HumanInventory extends BaseInventory {
 
         for (Player player : players) {
             if (player.equals(this.getHolder())) {
-                InventoryContentPacket pk2 = new InventoryContentPacket();
-                pk2.inventoryId = SpecialWindowId.ARMOR.getId();
-                pk2.slots = armor;
+                InventoryContentPacket pk1 = new InventoryContentPacket();
+                pk1.inventoryId = SpecialWindowId.ARMOR.getId();
+                pk1.slots = armor;
+                player.dataPacket(pk1);
+
+                PlayerArmorDamagePacket pk2 = new PlayerArmorDamagePacket();
+                for (int i = 0; i < 4; ++i) {
+                    Item item = armor[i];
+                    if (item.isNull()) {
+                        pk2.damage[i] = 0;
+                    } else {
+                        pk2.flags.add(PlayerArmorDamagePacket.PlayerArmorDamageFlag.values()[i]);
+                        pk2.damage[i] = item.getDamage();
+                    }
+                }
                 player.dataPacket(pk2);
             } else {
                 player.dataPacket(pk);
@@ -364,13 +495,17 @@ public class HumanInventory extends BaseInventory {
         }
     }
 
+    /**
+     * Set all armor for the player
+     *
+     * @param items all armors
+     */
     public void setArmorContents(Item[] items) {
         if (items.length < 4) {
             Item[] newItems = new Item[4];
             System.arraycopy(items, 0, newItems, 0, items.length);
             items = newItems;
         }
-
         for (int i = 0; i < 4; ++i) {
             if (items[i] == null) {
                 items[i] = Item.AIR;
@@ -384,14 +519,32 @@ public class HumanInventory extends BaseInventory {
         }
     }
 
-    public void sendArmorContents(Collection<Player> players) {
-        this.sendArmorContents(players.toArray(Player.EMPTY_ARRAY));
-    }
-
+    /**
+     * Send armor slot.
+     *
+     * @param index  the index 0~3 {@link PlayerArmorDamagePacket.PlayerArmorDamageFlag}
+     * @param player the player
+     */
     public void sendArmorSlot(int index, Player player) {
         this.sendArmorSlot(index, new Player[]{player});
     }
 
+    /**
+     * Send armor slot.
+     *
+     * @param index   the index 0~3 {@link PlayerArmorDamagePacket.PlayerArmorDamageFlag}
+     * @param players the players
+     */
+    public void sendArmorSlot(int index, Collection<Player> players) {
+        this.sendArmorSlot(index, players.toArray(Player.EMPTY_ARRAY));
+    }
+
+    /**
+     * Send armor slot.
+     *
+     * @param index   the index 0~3 {@link PlayerArmorDamagePacket.PlayerArmorDamageFlag}
+     * @param players the players
+     */
     public void sendArmorSlot(int index, Player[] players) {
         Item[] armor = this.getArmorContents();
 
@@ -401,19 +554,25 @@ public class HumanInventory extends BaseInventory {
 
         for (Player player : players) {
             if (player.equals(this.getHolder())) {
-                InventorySlotPacket pk2 = new InventorySlotPacket();
-                pk2.inventoryId = SpecialWindowId.ARMOR.getId();
-                pk2.slot = index - ARMORS_INDEX;
-                pk2.item = this.getItem(index);
+                InventorySlotPacket pk1 = new InventorySlotPacket();
+                pk1.inventoryId = SpecialWindowId.ARMOR.getId();
+                pk1.slot = index;
+                pk1.item = this.getItem(ARMORS_INDEX + index);
+                player.dataPacket(pk1);
+
+                PlayerArmorDamagePacket pk2 = new PlayerArmorDamagePacket();
+                Item item = armor[index];
+                if (item.isNull()) {
+                    pk2.damage[index] = 0;
+                } else {
+                    pk2.flags.add(PlayerArmorDamagePacket.PlayerArmorDamageFlag.values()[index]);
+                    pk2.damage[index] = item.getDamage();
+                }
                 player.dataPacket(pk2);
             } else {
                 player.dataPacket(pk);
             }
         }
-    }
-
-    public void sendArmorSlot(int index, Collection<Player> players) {
-        this.sendArmorSlot(index, players.toArray(Player.EMPTY_ARRAY));
     }
 
     @Override
@@ -443,7 +602,6 @@ public class HumanInventory extends BaseInventory {
             }
             pk.inventoryId = id;
             player.dataPacket(pk);
-
         }
     }
 
@@ -504,6 +662,7 @@ public class HumanInventory extends BaseInventory {
         ContainerClosePacket pk = new ContainerClosePacket();
         pk.windowId = who.getWindowId(this);
         pk.wasServerInitiated = who.getClosingWindowId() != pk.windowId;
+        pk.type = getType();
         who.dataPacket(pk);
         // player can never stop viewing their own inventory
         if (who != holder) {

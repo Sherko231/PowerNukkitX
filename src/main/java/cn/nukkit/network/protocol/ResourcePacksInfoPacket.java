@@ -3,18 +3,23 @@ package cn.nukkit.network.protocol;
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.resourcepacks.ResourcePack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 import lombok.Value;
 
 import java.util.List;
 
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class ResourcePacksInfoPacket extends DataPacket {
 
     public static final int NETWORK_ID = ProtocolInfo.RESOURCE_PACKS_INFO_PACKET;
 
     public boolean mustAccept;
     public boolean scripting;
+    public boolean hasAddonPacks;
 
     public boolean forceServerPacks;
     public ResourcePack[] behaviourPackEntries = ResourcePack.EMPTY_ARRAY;
@@ -32,6 +37,7 @@ public class ResourcePacksInfoPacket extends DataPacket {
     @Override
     public void encode(HandleByteBuf byteBuf) {
         byteBuf.writeBoolean(this.mustAccept);
+        byteBuf.writeBoolean(this.hasAddonPacks);
         byteBuf.writeBoolean(this.scripting);
         byteBuf.writeBoolean(this.forceServerPacks);
         this.encodePacks(byteBuf, this.behaviourPackEntries, true);

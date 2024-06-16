@@ -28,6 +28,7 @@ import java.util.UUID;
 /**
  * A PlayerHandle is used to access a player's protected data.
  */
+
 @SuppressWarnings("ClassCanBeRecord")
 public final class PlayerHandle {
     public final @NotNull Player player;
@@ -149,19 +150,11 @@ public final class PlayerHandle {
     }
 
     public Position getSpawnPosition() {
-        return player.spawnPosition;
+        return player.spawnPoint;
     }
 
     public void setSpawnPosition(Position spawnPosition) {
-        player.spawnPosition = spawnPosition;
-    }
-
-    public Position getSpawnBlockPosition() {
-        return player.spawnBlockPosition;
-    }
-
-    public void setSpawnBlockPosition(Position spawnBlockPosition) {
-        player.spawnBlockPosition = spawnBlockPosition;
+        player.spawnPoint = spawnPosition;
     }
 
     public void setInAirTicks(int inAirTicks) {
@@ -371,8 +364,8 @@ public final class PlayerHandle {
         player.onBlockBreakStart(pos, face);
     }
 
-    public void onBlockBreakAbort(Vector3 pos, BlockFace face) {
-        player.onBlockBreakAbort(pos, face);
+    public void onBlockBreakAbort(Vector3 pos) {
+        player.onBlockBreakAbort(pos);
     }
 
     public void onBlockBreakComplete(BlockVector3 blockPos, BlockFace face) {

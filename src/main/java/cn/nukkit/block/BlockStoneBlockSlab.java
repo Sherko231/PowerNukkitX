@@ -3,22 +3,31 @@ package cn.nukkit.block;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.enums.StoneSlabType;
 import cn.nukkit.item.ItemTool;
-import org.jetbrains.annotations.NotNull;
 
-public class BlockStoneBlockSlab extends BlockSlab {
-    public static final BlockProperties PROPERTIES = new BlockProperties(STONE_BLOCK_SLAB, CommonBlockProperties.MINECRAFT_VERTICAL_HALF, CommonBlockProperties.STONE_SLAB_TYPE);
+import java.util.Locale;
 
-    @Override
-    @NotNull public BlockProperties getProperties() {
-        return PROPERTIES;
-    }
-
-    public BlockStoneBlockSlab() {
-        this(PROPERTIES.getDefaultState());
-    }
-
+public abstract class BlockStoneBlockSlab extends BlockSlab {
     public BlockStoneBlockSlab(BlockState blockstate) {
-        super(blockstate, DOUBLE_STONE_BLOCK_SLAB);
+        super(blockstate, getDoubleSlabState(getType(blockstate)));
+    }
+
+    public static BlockState getDoubleSlabState(String string) {
+        StoneSlabType stoneSlabType = StoneSlabType.valueOf(string.toUpperCase(Locale.ENGLISH));
+        return BlockDoubleStoneBlockSlab.PROPERTIES.getBlockState(CommonBlockProperties.STONE_SLAB_TYPE, stoneSlabType);
+    }
+
+    public static String getType(BlockState state) {
+        return switch (state.getIdentifier()) {
+            case BlockID.QUARTZ_SLAB -> "quartz";
+            case BlockID.PETRIFIED_OAK_SLAB -> "wood";
+            case BlockID.STONE_BRICK_SLAB -> "stone_brick";
+            case BlockID.BRICK_SLAB -> "brick";
+            case BlockID.SMOOTH_STONE_SLAB -> "smooth_stone";
+            case BlockID.SANDSTONE_SLAB -> "sandstone";
+            case BlockID.NETHER_BRICK_SLAB -> "nether_brick";
+            case BlockID.COBBLESTONE_SLAB -> "cobblestone";
+            default -> "unknown";
+        };
     }
 
     @Override
@@ -46,12 +55,5 @@ public class BlockStoneBlockSlab extends BlockSlab {
         return slab.getId().equals(getId()) && getSlabType().equals(slab.getPropertyValue(CommonBlockProperties.STONE_SLAB_TYPE));
     }
 
-    public StoneSlabType getSlabType() {
-        return getPropertyValue(CommonBlockProperties.STONE_SLAB_TYPE);
-    }
-
-    public void setSlabType(StoneSlabType type) {
-        setPropertyValue(CommonBlockProperties.STONE_SLAB_TYPE, type);
-    }
-
+    public abstract StoneSlabType getSlabType();
 }

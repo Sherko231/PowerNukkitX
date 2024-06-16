@@ -1,6 +1,7 @@
 package cn.nukkit.utils;
 
 import cn.nukkit.Server;
+import cn.nukkit.plugin.InternalPlugin;
 import cn.nukkit.scheduler.FileWriteTask;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -15,7 +16,14 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Pattern;
 
 /**
@@ -173,6 +181,11 @@ public class Config {
             }
             this.parseContent(content);
         }
+        try {
+            inputStream.close();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         return correct;
     }
 
@@ -266,7 +279,7 @@ public class Config {
 
     private void save0(boolean async, StringBuilder content) {
         if (async) {
-            Server.getInstance().getScheduler().scheduleAsyncTask(new FileWriteTask(this.file, content.toString()));
+            Server.getInstance().getScheduler().scheduleAsyncTask(InternalPlugin.INSTANCE, new FileWriteTask(this.file, content.toString()));
         } else {
             try {
                 Utils.writeFile(this.file, content.toString());
@@ -501,7 +514,7 @@ public class Config {
                 }
                 final String key = line.substring(0, splitIndex);
                 final String value = line.substring(splitIndex + 1);
-                final String valueLower = value.toLowerCase();
+                final String valueLower = value.toLowerCase(Locale.ENGLISH);
                 if (this.config.containsKey(key)) {
                     log.debug("[Config] Repeated property {} on file {}", key, this.file.toString());
                 }
@@ -524,39 +537,6 @@ public class Config {
         }
     }
 
-    /**
-     * @deprecated use {@link #get(String)} instead
-     */
-    @Deprecated
-    public Object getNested(String key) {
-        return get(key);
-    }
-
-    /**
-     * @deprecated use {@link #get(String, Object)} instead
-     */
-    @Deprecated
-    public <T> T getNested(String key, T defaultValue) {
-        return get(key, defaultValue);
-    }
-
-    /**
-     * @deprecated use {@link #get(String)} instead
-     */
-    @Deprecated
-    @SuppressWarnings("unchecked")
-    public <T> T getNestedAs(String key, Class<T> type) {
-        return (T) get(key);
-    }
-
-    /**
-     * @deprecated use {@link #remove(String)} instead
-     */
-    @Deprecated
-    public void removeNested(String key) {
-        remove(key);
-    }
-
     private void parseContentAsJson(String content, Gson gson) {
         try {
             this.config = new ConfigSection(gson.fromJson(content, new TypeToken<LinkedHashMap<String, Object>>() {
@@ -574,9 +554,7 @@ public class Config {
                     this.parseProperties(content);
                     break;
                 case Config.JSON:
-                    GsonBuilder builder = new GsonBuilder();
-                    Gson gson = builder.create();
-                    this.config = new ConfigSection(gson.fromJson(content, new TypeToken<LinkedHashMap<String, Object>>() {
+                    this.config = new ConfigSection(JSONUtils.from(content, new TypeToken<LinkedHashMap<String, Object>>() {
                     }.getType()));
                     break;
                 case Config.YAML:

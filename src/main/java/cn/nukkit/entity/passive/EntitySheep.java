@@ -14,14 +14,18 @@ import cn.nukkit.entity.ai.evaluator.BlockCheckEvaluator;
 import cn.nukkit.entity.ai.evaluator.MemoryCheckNotEmptyEvaluator;
 import cn.nukkit.entity.ai.evaluator.PassByTimeEvaluator;
 import cn.nukkit.entity.ai.evaluator.ProbabilityEvaluator;
-import cn.nukkit.entity.ai.executor.*;
+import cn.nukkit.entity.ai.executor.EatGrassExecutor;
+import cn.nukkit.entity.ai.executor.EntityBreedingExecutor;
+import cn.nukkit.entity.ai.executor.FlatRandomRoamExecutor;
+import cn.nukkit.entity.ai.executor.InLoveExecutor;
+import cn.nukkit.entity.ai.executor.LookAtTargetExecutor;
+import cn.nukkit.entity.ai.executor.MoveToTargetExecutor;
 import cn.nukkit.entity.ai.memory.CoreMemoryTypes;
 import cn.nukkit.entity.ai.route.finder.impl.SimpleFlatAStarRouteFinder;
 import cn.nukkit.entity.ai.route.posevaluator.WalkingPosEvaluator;
 import cn.nukkit.entity.ai.sensor.NearestFeedingPlayerSensor;
 import cn.nukkit.entity.ai.sensor.NearestPlayerSensor;
 import cn.nukkit.entity.data.EntityFlag;
-import cn.nukkit.event.entity.EntityDamageByEntityEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemDye;
 import cn.nukkit.level.Sound;
@@ -84,8 +88,8 @@ public class EntitySheep extends EntityAnimal implements EntityWalkable, EntityS
                                         )
                                 ),
                                 any(
-                                        new BlockCheckEvaluator(Block.GRASS, new Vector3(0, -1, 0)),
-                                        new BlockCheckEvaluator(Block.TALLGRASS, Vector3.ZERO))),
+                                        new BlockCheckEvaluator(Block.GRASS_BLOCK, new Vector3(0, -1, 0)),
+                                        new BlockCheckEvaluator(Block.TALL_GRASS, Vector3.ZERO))),
                                 3, 1, 100
                         ),
                         new Behavior(new LookAtTargetExecutor(CoreMemoryTypes.NEAREST_PLAYER, 100), new ProbabilityEvaluator(4, 10), 1, 1, 100),
@@ -154,8 +158,8 @@ public class EntitySheep extends EntityAnimal implements EntityWalkable, EntityS
             return true;
         }
 
-        if (item instanceof ItemDye) {
-            this.setColor(((ItemDye) item).getDyeColor().getWoolData());
+        if (item instanceof ItemDye dye) {
+            this.setColor(dye.getDyeColor().getWoolData());
             return true;
         }
 
@@ -170,7 +174,9 @@ public class EntitySheep extends EntityAnimal implements EntityWalkable, EntityS
         this.sheared = true;
         this.setDataFlag(EntityFlag.SHEARED, true);
 
-        this.level.dropItem(this, Item.get(Item.WOOL, getColor(), ThreadLocalRandom.current().nextInt(2) + 1));
+        Item woolItem = this.getWoolItem();
+        woolItem.setCount(ThreadLocalRandom.current().nextInt(2) + 1);
+        this.level.dropItem(this, woolItem);
 
         level.addSound(this, Sound.MOB_SHEEP_SHEAR);
         level.getVibrationManager().callVibrationEvent(new VibrationEvent(this, this.clone(), VibrationType.SHEAR));
@@ -184,10 +190,8 @@ public class EntitySheep extends EntityAnimal implements EntityWalkable, EntityS
 
     @Override
     public Item[] getDrops() {
-        if (this.lastDamageCause instanceof EntityDamageByEntityEvent) {
-            return new Item[]{Item.get(((this.isOnFire()) ? Item.COOKED_MUTTON : Item.MUTTON)), Item.get(Item.WOOL, getColor(), 1)};
-        }
-        return Item.EMPTY_ARRAY;
+        Item woolItem = sheared ? Item.AIR : this.getWoolItem();
+        return new Item[]{Item.get(((this.isOnFire()) ? Item.COOKED_MUTTON : Item.MUTTON)), woolItem};
     }
 
     public int getColor() {
@@ -198,6 +202,28 @@ public class EntitySheep extends EntityAnimal implements EntityWalkable, EntityS
         this.color = color;
         this.setDataProperty(COLOR, color);
         this.namedTag.putByte("Color", this.color);
+    }
+
+    public Item getWoolItem() {
+        return switch (getColor()) {
+            case 0 -> Item.get(Block.WHITE_WOOL);
+            case 1 -> Item.get(Block.ORANGE_WOOL);
+            case 2 -> Item.get(Block.MAGENTA_WOOL);
+            case 3 -> Item.get(Block.LIGHT_BLUE_WOOL);
+            case 4 -> Item.get(Block.YELLOW_WOOL);
+            case 5 -> Item.get(Block.LIME_WOOL);
+            case 6 -> Item.get(Block.PINK_WOOL);
+            case 7 -> Item.get(Block.GRAY_WOOL);
+            case 8 -> Item.get(Block.LIGHT_GRAY_WOOL);
+            case 9 -> Item.get(Block.CYAN_WOOL);
+            case 10 -> Item.get(Block.PURPLE_WOOL);
+            case 11 -> Item.get(Block.BLUE_WOOL);
+            case 12 -> Item.get(Block.BROWN_WOOL);
+            case 13 -> Item.get(Block.GREEN_WOOL);
+            case 14 -> Item.get(Block.RED_WOOL);
+            case 15 -> Item.get(Block.BLACK_WOOL);
+            default -> throw new IllegalStateException("Unexpected value: " + getColor());
+        };
     }
 
     private int randomColor() {

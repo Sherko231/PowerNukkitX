@@ -52,8 +52,17 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     protected BlockColor color;
     public int layer;
 
+    public static boolean isNotActivate(Player player) {
+        if (player == null) {
+            return true;
+        }
+        Item itemInHand = player.getInventory().getItemInHand();
+        return (player.isSneaking() || player.isFlySneaking()) && !(itemInHand.isTool() || itemInHand.isNull());
+    }
+
     @NotNull
     public static Block get(String id) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = Registries.BLOCK.get(id);
         if (block == null) return new BlockAir();
         return block;
@@ -61,6 +70,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
     @NotNull
     public static Block get(String id, Position pos) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = Registries.BLOCK.get(id, pos.getFloorX(), pos.getFloorY(), pos.getFloorZ(), pos.level);
         if (block == null) {
             BlockAir blockAir = new BlockAir();
@@ -75,6 +85,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
     @NotNull
     public static Block get(String id, Position pos, int layer) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = get(id, pos);
         block.layer = layer;
         return block;
@@ -82,6 +93,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
     @NotNull
     public static Block get(String id, Level level, int x, int y, int z) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = Registries.BLOCK.get(id, x, y, z, level);
         if (block == null) {
             BlockAir blockAir = new BlockAir();
@@ -96,6 +108,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
     @NotNull
     public static Block get(String id, Level level, int x, int y, int z, int layer) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = get(id, level, x, y, z);
         block.layer = layer;
         return block;
@@ -154,6 +167,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
 
     @NotNull
     public static Block getWithState(String id, BlockState blockState) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Block block = get(id);
         block.setPropertyValues(blockState.getBlockPropertyValues());
         return block;
@@ -174,7 +188,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         }
     }
 
-    protected Block(@Nullable BlockState blockState) {
+    public Block(@Nullable BlockState blockState) {
         super(0, 0, 0, null);
         if (blockState != null && getProperties().containBlockState(blockState)) {
             this.blockstate = blockState;
@@ -215,6 +229,10 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         return this.getLevel().setBlock(this, layer, Block.get(AIR), true, true);
     }
 
+    /**
+     * When the player break block with canSilkTouch enchantment and the canSilkTouch=true,
+     * the drop will be set to the original item {@link Block#toItem()}
+     */
     public boolean canSilkTouch() {
         return false;
     }
@@ -261,18 +279,14 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     /**
-     * 控制方块硬度
-     *
-     * @return 方块的硬度
+     * Define the block hardness
      */
     public double getHardness() {
         return 10;
     }
 
     /**
-     * 控制方块爆炸抗性
-     *
-     * @return 方块的爆炸抗性
+     * Defines the block explosion resistance
      */
     public double getResistance() {
         return 1;
@@ -373,7 +387,6 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     // https://minecraft.wiki/w/Opacity#Lighting
-
     public boolean diffusesSkyLight() {
         return false;
     }
@@ -446,7 +459,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     public boolean canHarvest(Item item) {
-        return getToolTier() == 0 || getToolType() == 0 || correctTool0(getToolType(), item, getId()) && item.getTier() >= getToolTier();
+        return getToolTier() == 0 || getToolType() == 0 || correctTool0(getToolType(), item, this) && item.getTier() >= getToolTier();
     }
 
     /**
@@ -558,7 +571,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     private double toolBreakTimeBonus0(Item item) {
         if (item instanceof ItemCustomTool itemCustomTool && itemCustomTool.getSpeed() != null) {
             return customToolBreakTimeBonus(customToolType(item), itemCustomTool.getSpeed());
-        } else return toolBreakTimeBonus0(toolType0(item, getProperties().getIdentifier()), item.getTier(), getId());
+        } else return toolBreakTimeBonus0(toolType0(item, this), item.getTier(), getId());
     }
 
     private double customToolBreakTimeBonus(int toolType, @Nullable Integer speed) {
@@ -634,9 +647,10 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         return 1.0 + (0.2 * hasteLoreLevel);
     }
 
-    private static int toolType0(Item item, String blockId) {
-        if ((blockId.equals(LEAVES) && item.isHoe()) || (blockId.equals(LEAVES2) && item.isHoe()))
+    private static int toolType0(Item item, Block b) {
+        if (b instanceof BlockLeaves && item.isHoe()) {
             return ItemTool.TYPE_SHEARS;
+        }
         if (item.isSword()) return ItemTool.TYPE_SWORD;
         if (item.isShovel()) return ItemTool.TYPE_SHOVEL;
         if (item.isPickaxe()) return ItemTool.TYPE_PICKAXE;
@@ -646,10 +660,11 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
         return ItemTool.TYPE_NONE;
     }
 
-    private static boolean correctTool0(int blockToolType, Item item, String blockId) {
-        if ((blockId.equals(LEAVES) && item.isHoe()) || (blockId.equals(LEAVES2) && item.isHoe())) {
+    private static boolean correctTool0(int blockToolType, Item item, Block b) {
+        String block = b.getId();
+        if (b instanceof BlockLeaves && item.isHoe()) {
             return (blockToolType == ItemTool.TYPE_SHEARS && item.isHoe());
-        } else if (blockId.equals(BAMBOO) && item.isSword()) {
+        } else if (block.equals(BAMBOO) && item.isSword()) {
             return (blockToolType == ItemTool.TYPE_AXE && item.isSword());
         } else return (blockToolType == ItemTool.TYPE_SWORD && item.isSword()) ||
                 (blockToolType == ItemTool.TYPE_SHOVEL && item.isShovel()) ||
@@ -658,7 +673,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
                 (blockToolType == ItemTool.TYPE_HOE && item.isHoe()) ||
                 (blockToolType == ItemTool.TYPE_SHEARS && item.isShears()) ||
                 blockToolType == ItemTool.TYPE_NONE ||
-                (blockId.equals(WEB) && item.isShears());
+                (block.equals(WEB) && item.isShears());
     }
 
     public double getBreakTime(Item item, Player player) {
@@ -730,7 +745,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
                     .map(Effect::getAmplifier).orElse(0);
         }
 
-        if (correctTool0(getToolType(), item, getId())) {
+        if (correctTool0(getToolType(), item, this)) {
             speedMultiplier = toolBreakTimeBonus0(item);
 
             int efficiencyLevel = Optional.ofNullable(item.getEnchantment(Enchantment.ID_EFFICIENCY))
@@ -1269,14 +1284,13 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
     }
 
     public Item toItem() {
-        return new ItemBlock(this);
+        return new ItemBlock(this.getProperties().getDefaultState().toBlock());
     }
 
     /**
-     * 控制方块被破坏时掉落的物品
-     * 常在{@link cn.nukkit.level.Level#useBreakOn(Vector3, int, BlockFace, Item, Player, boolean, boolean)}方法被调用
+     * Control the item dropped when a block is broken normally
      *
-     * @return 掉落的物品数组
+     * @return An array of dropped items
      */
     public Item[] getDrops(Item item) {
         if (canHarvestWithHand() || canHarvest(item)) {
@@ -1350,7 +1364,7 @@ public abstract class Block extends Position implements Metadatable, AxisAligned
      * @return if the gets powered.
      */
     public boolean isGettingPower() {
-        if (!this.level.getServer().isRedstoneEnabled()) return false;
+        if (!this.level.getServer().getSettings().levelSettings().enableRedstone()) return false;
 
         for (BlockFace side : BlockFace.values()) {
             Block b = this.getSide(side).getLevelBlock();

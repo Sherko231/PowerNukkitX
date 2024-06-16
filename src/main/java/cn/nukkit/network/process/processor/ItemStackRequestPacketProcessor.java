@@ -16,6 +16,7 @@ import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackReques
 import cn.nukkit.network.protocol.types.itemstack.request.action.ItemStackRequestActionType;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponse;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseContainer;
+import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseSlot;
 import cn.nukkit.network.protocol.types.itemstack.response.ItemStackResponseStatus;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +26,7 @@ import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Slf4j
@@ -36,6 +38,7 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
         PROCESSORS.put(ItemStackRequestActionType.CRAFT_CREATIVE, new CraftCreativeActionProcessor());
         PROCESSORS.put(ItemStackRequestActionType.CRAFT_RECIPE, new CraftRecipeActionProcessor());
         PROCESSORS.put(ItemStackRequestActionType.CRAFT_RESULTS_DEPRECATED, new CraftResultDeprecatedActionProcessor());
+        PROCESSORS.put(ItemStackRequestActionType.CRAFT_RECIPE_AUTO, new CraftRecipeAutoProcessor());
         PROCESSORS.put(ItemStackRequestActionType.CREATE, new CreateActionProcessor());
         PROCESSORS.put(ItemStackRequestActionType.DESTROY, new DestroyActionProcessor());
         PROCESSORS.put(ItemStackRequestActionType.DROP, new DropActionProcessor());
@@ -45,6 +48,8 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
         PROCESSORS.put(ItemStackRequestActionType.CRAFT_RECIPE_OPTIONAL, new CraftRecipeOptionalProcessor());
         PROCESSORS.put(ItemStackRequestActionType.CRAFT_REPAIR_AND_DISENCHANT, new CraftGrindstoneActionProcessor());
         PROCESSORS.put(ItemStackRequestActionType.MINE_BLOCK, new MineBlockActionProcessor());
+        PROCESSORS.put(ItemStackRequestActionType.CRAFT_LOOM, new CraftLoomActionProcessor());
+        PROCESSORS.put(ItemStackRequestActionType.BEACON_PAYMENT, new BeaconPaymentActionProcessor());
     }
 
     @Override
@@ -52,7 +57,7 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
     public void handle(@NotNull PlayerHandle playerHandle, @NotNull ItemStackRequestPacket pk) {
         Player player = playerHandle.player;
         List<ItemStackResponse> responses = new ArrayList<>();
-        for (var request : pk.getRequests()) {
+        for (var request : pk.requests) {
             ItemStackRequestAction[] actions = request.getActions();
             ItemStackRequestContext context = new ItemStackRequestContext(request);
             ItemStackResponse itemStackResponse = new ItemStackResponse(ItemStackResponseStatus.OK, request.getRequestId(), new ArrayList<>());
@@ -62,7 +67,7 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
                 context.setCurrentActionIndex(index);
                 ItemStackRequestActionProcessor<ItemStackRequestAction> processor = (ItemStackRequestActionProcessor<ItemStackRequestAction>) PROCESSORS.get(action.getType());
                 if (processor == null) {
-                    log.warn("Unhandled inventory action type " + action.getType());
+                    log.warn("Unhandled inventory action type {}", action.getType());
                     continue;
                 }
 
@@ -72,6 +77,7 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
                 if (topWindow.isPresent() && topWindow.get() instanceof FakeInventory fakeInventory) {
                     fakeInventory.handle(event);
                 }
+
                 ActionResponse response;
                 if (event.getResponse() != null) {
                     response = event.getResponse();
@@ -87,6 +93,7 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
                         responses.add(itemStackResponse);
                         break;
                     }
+
                     for (var container : response.containers()) {
                         responseContainerMap.compute(container.getContainer(), (key, oldValue) -> {
                             if (oldValue == null) {
@@ -102,6 +109,18 @@ public class ItemStackRequestPacketProcessor extends DataPacketProcessor<ItemSta
             itemStackResponse.getContainers().addAll(responseContainerMap.values());
             responses.add(itemStackResponse);
         }
+
+        for (var r : responses) {
+            for (var c : r.getContainers()) {
+                LinkedHashMap<Integer, ItemStackResponseSlot> newItems = new LinkedHashMap<>();
+                for (var i : c.getItems()) {
+                    newItems.put(Objects.hash(i.getSlot(), i.getHotbarSlot()), i);
+                }
+                c.getItems().clear();
+                c.getItems().addAll(newItems.values());
+            }
+        }
+
         var itemStackResponsePacket = new ItemStackResponsePacket();
         itemStackResponsePacket.entries.addAll(responses);
         player.dataPacket(itemStackResponsePacket);

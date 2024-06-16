@@ -87,35 +87,36 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 player.removeLastUseTick(releaseItemData.itemInHand.getId());
             }
         } else if (pk.transactionType == InventoryTransactionPacket.TYPE_NORMAL) {
-            for (var action : pk.actions) {
-                if (action.getInventorySource().getType().equals(InventorySource.Type.WORLD_INTERACTION)) {
-                    if (action.getInventorySource().getFlag().equals(InventorySource.Flag.DROP_ITEM)) {
-                        var count = action.newItem.getCount();
-                        Item item = player.getInventory().getItemInHand();
-                        if (item.isNull()) return;
-
-                        PlayerDropItemEvent ev;
-                        player.getServer().getPluginManager().callEvent(ev = new PlayerDropItemEvent(player, item));
-                        if (ev.isCancelled()) {
-                            player.getInventory().sendContents(player);
-                            return;
-                        }
-
-                        HumanInventory inventory = player.getInventory();
-                        int c = item.getCount() - count;
-                        if (c <= 0) {
-                            inventory.clear(inventory.getHeldItemIndex());
-                        } else {
-                            item.setCount(c);
-                            inventory.setItem(inventory.getHeldItemIndex(), item);
-                        }
-                        item.setCount(count);
-                        player.dropItem(item);
-                        return;
-                    }
-                }
+            if (pk.actions.length == 2 && pk.actions[0].getInventorySource().getType().equals(InventorySource.Type.WORLD_INTERACTION) &&
+                    pk.actions[0].getInventorySource().getFlag().equals(InventorySource.Flag.DROP_ITEM) &&
+                    pk.actions[1].getInventorySource().getType().equals(InventorySource.Type.CONTAINER)
+                    && pk.actions[1].getInventorySource().getFlag().equals(InventorySource.Flag.NONE)) {//handle throw hotbar item for player
+                dropHotBarItemForPlayer(pk.actions[1].inventorySlot, pk.actions[0].newItem.count, player);
             }
         }
+    }
+
+    private static void dropHotBarItemForPlayer(int hotbarSlot, int dropCount, Player player) {
+        final HumanInventory inventory = player.getInventory();
+        Item item = inventory.getItem(hotbarSlot);
+        if (item.isNull()) return;
+
+        PlayerDropItemEvent ev;
+        player.getServer().getPluginManager().callEvent(ev = new PlayerDropItemEvent(player, item));
+        if (ev.isCancelled()) {
+            player.getInventory().sendContents(player);
+            return;
+        }
+
+        int c = item.getCount() - dropCount;
+        if (c <= 0) {
+            inventory.clear(hotbarSlot);
+        } else {
+            item.setCount(c);
+            inventory.setItem(hotbarSlot, item);
+        }
+        item.setCount(dropCount);
+        player.dropItem(item);
     }
 
     @Override
@@ -258,7 +259,7 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 boolean spamBug = (playerHandle.getLastRightClickPos() != null && System.currentTimeMillis() - playerHandle.getLastRightClickTime() < 100.0 && blockVector.distanceSquared(playerHandle.getLastRightClickPos()) < 0.00001);
                 playerHandle.setLastRightClickPos(blockVector.asVector3());
                 playerHandle.setLastRightClickTime(System.currentTimeMillis());
-                if (spamBug && player.getInventory().getItemInHand().getBlock().isAir()) {
+                if (spamBug && player.getInventory().getItemInHand().getBlock().isAir()) {//Normal blocks are not detected, as they can be placed continuously
                     return;
                 }
                 player.setDataFlag(EntityFlag.USING_ITEM, false);
@@ -299,7 +300,7 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 if (!player.spawned || !player.isAlive() || player.isCreative()) {
                     return;
                 }
-                player.resetCraftingGridType();
+                player.resetInventory();
                 Item i = player.getInventory().getItemInHand();
                 Item oldItem = i.clone();
                 if (player.isSurvival() || player.isAdventure()) {
@@ -342,6 +343,9 @@ public class InventoryTransactionProcessor extends DataPacketProcessor<Inventory
                 PlayerInteractEvent interactEvent = new PlayerInteractEvent(player, item, directionVector, face, PlayerInteractEvent.Action.RIGHT_CLICK_AIR);
                 player.getServer().getPluginManager().callEvent(interactEvent);
                 if (interactEvent.isCancelled()) {
+                    if (interactEvent.getItem() != null && interactEvent.getItem().isArmor()) {
+                        player.getInventory().sendArmorContents(player);
+                    }
                     player.getInventory().sendHeldItem(player);
                     return;
                 }

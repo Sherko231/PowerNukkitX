@@ -1,12 +1,14 @@
 package cn.nukkit.block;
 
 import cn.nukkit.block.property.type.BlockPropertyType;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.CompoundTagView;
 import cn.nukkit.nbt.tag.LinkedCompoundTag;
 import cn.nukkit.nbt.tag.TreeMapCompoundTag;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import cn.nukkit.utils.HashUtils;
 import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import org.jetbrains.annotations.UnmodifiableView;
 
 import java.util.Arrays;
@@ -23,6 +25,16 @@ record BlockStateImpl(String identifier,
                       BlockPropertyType.BlockPropertyValue<?, ?, ?>[] blockPropertyValues,
                       CompoundTagView blockStateTag
 ) implements BlockState {
+    static Int2ObjectOpenHashMap<BlockStateImpl> UNKNOWN_BLOCK_STATE_CACHE = new Int2ObjectOpenHashMap<>();
+
+    static BlockStateImpl makeUnknownBlockState(int hash, CompoundTag blockTag) {
+        return UNKNOWN_BLOCK_STATE_CACHE.computeIfAbsent(hash, h -> new BlockStateImpl(BlockID.UNKNOWN, -2, (short) 0, new BlockPropertyType.BlockPropertyValue[0], new CompoundTagView(new LinkedCompoundTag()
+                .putString("name", BlockID.UNKNOWN)
+                .putCompound("states", new CompoundTag())
+                .putCompound("Block", blockTag)
+                .putInt("version", ProtocolInfo.BLOCK_STATE_VERSION_NO_REVISION))));
+    }
+
     private static CompoundTagView buildBlockStateTag(String identifier, BlockPropertyType.BlockPropertyValue<?, ?, ?>[] propertyValues) {
         //build block state tag
         var states = new TreeMapCompoundTag();
@@ -86,7 +98,7 @@ record BlockStateImpl(String identifier,
                 return (DATATYPE) property.getValue();
             }
         }
-        throw new IllegalArgumentException("Property " + p + " is not supported by this block");
+        throw new IllegalArgumentException("Property " + p + " is not supported by this block " + this.identifier);
     }
 
     @Override
@@ -107,7 +119,7 @@ record BlockStateImpl(String identifier,
             } else newPropertyValues[i] = v;
         }
         if (!succeed) {
-            throw new IllegalArgumentException("Property " + propertyValue.getPropertyType() + " is not supported by this block");
+            throw new IllegalArgumentException("Property " + propertyValue.getPropertyType() + " is not supported by this block " + this.identifier);
         }
         return getNewBlockState(properties, newPropertyValues);
     }
@@ -140,7 +152,7 @@ record BlockStateImpl(String identifier,
                         errorMsgBuilder.append(", ");
                 }
             }
-            errorMsgBuilder.append(" are not supported by this block");
+            errorMsgBuilder.append(" are not supported by this block ").append(this.identifier);
             throw new IllegalArgumentException(errorMsgBuilder.toString());
         }
         return getNewBlockState(properties, newPropertyValues);

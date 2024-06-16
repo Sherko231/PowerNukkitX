@@ -3,6 +3,7 @@ package cn.nukkit.block;
 import cn.nukkit.Player;
 import cn.nukkit.block.property.enums.DoublePlantType;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemID;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.particle.BoneMealParticle;
@@ -14,29 +15,24 @@ import java.util.concurrent.ThreadLocalRandom;
 import static cn.nukkit.block.property.CommonBlockProperties.DOUBLE_PLANT_TYPE;
 import static cn.nukkit.block.property.CommonBlockProperties.UPPER_BLOCK_BIT;
 
-/**
- * @author xtypr
- * @since 2015/11/23
- */
-public class BlockDoublePlant extends BlockFlowable {
-    public static final BlockProperties PROPERTIES = new BlockProperties(DOUBLE_PLANT, DOUBLE_PLANT_TYPE, UPPER_BLOCK_BIT);
-
-    @Override
-    @NotNull public BlockProperties getProperties() {
-        return PROPERTIES;
-    }
-
-    public BlockDoublePlant() {
-        this(PROPERTIES.getDefaultState());
+public abstract class BlockDoublePlant extends BlockFlowable {
+    public static BlockDoublePlant getFromType(DoublePlantType type) {
+        return switch (type) {
+            case FERN -> new BlockLargeFern();
+            case ROSE -> new BlockRoseBush();
+            case GRASS -> new BlockTallGrass();
+            case PAEONIA -> new BlockPeony();
+            case SYRINGA -> new BlockLilac();
+            case SUNFLOWER -> new BlockSunflower();
+        };
     }
 
     public BlockDoublePlant(BlockState blockstate) {
         super(blockstate);
     }
 
-    @NotNull public DoublePlantType getDoublePlantType() {
-        return getPropertyValue(DOUBLE_PLANT_TYPE);
-    }
+    @NotNull
+    public abstract DoublePlantType getDoublePlantType();
 
     public void setDoublePlantType(@NotNull DoublePlantType type) {
         setPropertyValue(DOUBLE_PLANT_TYPE, type);
@@ -48,6 +44,12 @@ public class BlockDoublePlant extends BlockFlowable {
 
     public void setTopHalf(boolean topHalf) {
         setPropertyValue(UPPER_BLOCK_BIT, topHalf);
+    }
+
+    @Override
+    public Item toItem() {
+        int aux = getDoublePlantType().ordinal();
+        return new ItemBlock(this, aux);
     }
 
     @Override
@@ -65,13 +67,13 @@ public class BlockDoublePlant extends BlockFlowable {
         if (type == Level.BLOCK_UPDATE_NORMAL) {
             if (isTopHalf()) {
                 // Top
-                if (this.down().getId() != DOUBLE_PLANT) {
+                if (!(this.down() instanceof BlockDoublePlant)) {
                     this.getLevel().setBlock(this, Block.get(BlockID.AIR), false, true);
                     return Level.BLOCK_UPDATE_NORMAL;
                 }
             } else {
                 // Bottom
-                if (this.up().getId() != DOUBLE_PLANT || !isSupportValid(down())) {
+                if (!(this.down() instanceof BlockDoublePlant) || !isSupportValid(down())) {
                     this.getLevel().useBreakOn(this);
                     return Level.BLOCK_UPDATE_NORMAL;
                 }
@@ -99,7 +101,7 @@ public class BlockDoublePlant extends BlockFlowable {
 
     private boolean isSupportValid(Block support) {
         return switch (support.getId()) {
-            case GRASS, DIRT, PODZOL, FARMLAND, MYCELIUM, DIRT_WITH_ROOTS, MOSS_BLOCK -> true;
+            case GRASS_BLOCK, DIRT, PODZOL, FARMLAND, MYCELIUM, DIRT_WITH_ROOTS, MOSS_BLOCK -> true;
             default -> false;
         };
     }

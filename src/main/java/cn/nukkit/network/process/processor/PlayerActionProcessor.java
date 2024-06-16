@@ -3,7 +3,17 @@ package cn.nukkit.network.process.processor;
 import cn.nukkit.AdventureSettings;
 import cn.nukkit.Player;
 import cn.nukkit.PlayerHandle;
-import cn.nukkit.event.player.*;
+import cn.nukkit.block.Block;
+import cn.nukkit.block.BlockFrame;
+import cn.nukkit.block.BlockLectern;
+import cn.nukkit.event.player.PlayerJumpEvent;
+import cn.nukkit.event.player.PlayerKickEvent;
+import cn.nukkit.event.player.PlayerToggleFlightEvent;
+import cn.nukkit.event.player.PlayerToggleGlideEvent;
+import cn.nukkit.event.player.PlayerToggleSneakEvent;
+import cn.nukkit.event.player.PlayerToggleSpinAttackEvent;
+import cn.nukkit.event.player.PlayerToggleSprintEvent;
+import cn.nukkit.event.player.PlayerToggleSwimEvent;
 import cn.nukkit.item.ItemID;
 import cn.nukkit.item.enchantment.Enchantment;
 import cn.nukkit.level.Sound;
@@ -15,6 +25,8 @@ import cn.nukkit.network.protocol.MovePlayerPacket;
 import cn.nukkit.network.protocol.PlayerActionPacket;
 import cn.nukkit.network.protocol.ProtocolInfo;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
 
 public class PlayerActionProcessor extends DataPacketProcessor<PlayerActionPacket> {
     @Override
@@ -31,7 +43,20 @@ public class PlayerActionProcessor extends DataPacketProcessor<PlayerActionPacke
         switch (pk.action) {
             case PlayerActionPacket.ACTION_START_BREAK -> playerHandle.onBlockBreakStart(pos, face);
             case PlayerActionPacket.ACTION_ABORT_BREAK, PlayerActionPacket.ACTION_STOP_BREAK ->
-                    playerHandle.onBlockBreakAbort(pos, face);
+                    playerHandle.onBlockBreakAbort(pos);
+            case PlayerActionPacket.ACTION_CREATIVE_PLAYER_DESTROY_BLOCK -> {
+                // Used by client to get book from lecterns and items from item frame in creative mode since 1.20.70
+                Block blockLectern = playerHandle.player.getLevel().getBlock(pos);
+                if (blockLectern instanceof BlockLectern blockLecternI && blockLectern.distance(playerHandle.player) <= 6) {
+                    blockLecternI.dropBook(playerHandle.player);
+                }
+                if (blockLectern instanceof BlockFrame blockFrame && blockFrame.getBlockEntity() != null) {
+                    blockFrame.getBlockEntity().dropItem(playerHandle.player);
+                }
+                if (player.getServer().getServerAuthoritativeMovement() > 0) break;//ServerAuthorInput not use player
+                playerHandle.onBlockBreakComplete(new BlockVector3(pk.x, pk.y, pk.z), face);
+            }
+            case PlayerActionPacket.ACTION_CONTINUE_BREAK -> playerHandle.onBlockBreakContinue(pos, face);
             case PlayerActionPacket.ACTION_GET_UPDATED_BLOCK -> {
                 //TODO
             }
@@ -85,10 +110,6 @@ public class PlayerActionProcessor extends DataPacketProcessor<PlayerActionPacke
                     player.setSneaking(false);
                 }
             }
-            case PlayerActionPacket.ACTION_CREATIVE_PLAYER_DESTROY_BLOCK -> {
-                if (player.getServer().getServerAuthoritativeMovement() > 0) break;//ServerAuthorInput not use player
-                playerHandle.onBlockBreakComplete(new BlockVector3(pk.x, pk.y, pk.z), face);
-            }
             case PlayerActionPacket.ACTION_DIMENSION_CHANGE_ACK ->
                     player.sendPosition(player, player.yaw, player.pitch, MovePlayerPacket.MODE_NORMAL);
             case PlayerActionPacket.ACTION_START_GLIDE -> {
@@ -109,7 +130,6 @@ public class PlayerActionProcessor extends DataPacketProcessor<PlayerActionPacke
                     player.setGliding(false);
                 }
             }
-            case PlayerActionPacket.ACTION_CONTINUE_BREAK -> playerHandle.onBlockBreakContinue(pos, face);
             case PlayerActionPacket.ACTION_START_SWIMMING -> {
                 PlayerToggleSwimEvent ptse = new PlayerToggleSwimEvent(player, true);
                 player.getServer().getPluginManager().callEvent(ptse);
@@ -131,7 +151,7 @@ public class PlayerActionProcessor extends DataPacketProcessor<PlayerActionPacke
                 }
             }
             case PlayerActionPacket.ACTION_START_SPIN_ATTACK -> {
-                if (player.getInventory().getItemInHand().getId() != ItemID.TRIDENT) {
+                if (!Objects.equals(player.getInventory().getItemInHand().getId(), ItemID.TRIDENT)) {
                     player.sendPosition(player, player.yaw, player.pitch, MovePlayerPacket.MODE_RESET);
                     break;
                 }

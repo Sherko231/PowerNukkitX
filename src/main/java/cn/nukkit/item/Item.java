@@ -20,8 +20,8 @@ import cn.nukkit.registry.Registries;
 import cn.nukkit.tags.ItemTags;
 import cn.nukkit.utils.Binary;
 import cn.nukkit.utils.Identifier;
+import cn.nukkit.utils.JSONUtils;
 import cn.nukkit.utils.TextFormat;
-import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import io.netty.util.internal.EmptyArrays;
 import it.unimi.dsi.fastutil.ints.Int2IntArrayMap;
@@ -39,7 +39,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.StringJoiner;
-import java.util.regex.Pattern;
 
 /**
  * @author MagicDroidX (Nukkit Project)
@@ -49,30 +48,17 @@ public abstract class Item implements Cloneable, ItemID {
     public static final Item AIR = new ConstAirItem();
     public static final Item[] EMPTY_ARRAY = new Item[0];
 
-    /**
-     * Groups:
-     * <ol>
-     *     <li>namespace (optional)</li>
-     *     <li>item name (choice)</li>
-     *     <li>damage (optional, for item name)</li>
-     * </ol>
-     */
-    private static final Pattern ITEM_STRING_PATTERN = Pattern.compile(
-            //       1:namespace    2:name           3:damage
-            "^(?:(?:([a-z_]\\w*):)?([a-z._]\\w*)(?::(-?\\d+))?)$"
-    );
-
     public static String UNKNOWN_STR = "Unknown";
-    protected Block block = null;
-    protected final String id;
-    protected final Identifier identifier;
+    protected String id;
+    protected Identifier identifier;
+    protected String name;
     protected int meta;
+    public int count;
+    protected Integer netId;
+    protected Block block = null;
     protected boolean hasMeta = true;
     private byte[] tags = EmptyArrays.EMPTY_BYTES;
     private CompoundTag cachedNBT;
-    public int count;
-    protected String name;
-    protected Integer netId;
     private static int STACK_NETWORK_ID_COUNTER = 1;
 
     private String idConvertToName() {
@@ -111,14 +97,32 @@ public abstract class Item implements Cloneable, ItemID {
     public Item(@NotNull String id, int meta, int count, @Nullable String name, boolean autoAssignStackNetworkId) {
         this.id = id.intern();
         this.identifier = new Identifier(id);
-        this.meta = meta & 0xffff;
         this.count = count;
         if (name != null) {
             this.name = name.intern();
         }
+        this.setDamage(meta);
         if (autoAssignStackNetworkId) {
             this.autoAssignStackNetworkId();
         }
+    }
+
+    protected Item(@NotNull Block block, int meta, int count, @Nullable String name, boolean autoAssignStackNetworkId) {
+        this.id = block.getItemId().intern();
+        this.identifier = new Identifier(id);
+        this.count = count;
+        if (name != null) {
+            this.name = name.intern();
+        }
+        this.block = block;
+        this.setDamage(meta);
+        if (autoAssignStackNetworkId) {
+            this.autoAssignStackNetworkId();
+        }
+    }
+
+    @ApiStatus.Internal
+    public void internalAdjust() {
     }
 
     public boolean hasMeta() {
@@ -148,19 +152,19 @@ public abstract class Item implements Cloneable, ItemID {
 
     @NotNull
     public static Item get(String id, int meta, int count, byte[] tags, boolean autoAssignStackNetworkId) {
+        id = id.contains(":") ? id : "minecraft:" + id;
         Item item = Registries.ITEM.get(id, meta, count, tags);
         if (item == null) {
             BlockState itemBlockState = getItemBlockState(id, meta);
             if (itemBlockState == null || itemBlockState == BlockAir.STATE) {
                 return Item.AIR;
             }
-            item = new ItemBlock(Registries.BLOCK.get(itemBlockState));
+            item = itemBlockState.toItem();
             item.setCount(count);
             if (tags != null) {
                 item.setCompoundTag(tags);
             }
-        }
-        if (autoAssignStackNetworkId) {
+        } else if (autoAssignStackNetworkId) {
             item.autoAssignStackNetworkId();
         }
         return item;
@@ -691,22 +695,31 @@ public abstract class Item implements Cloneable, ItemID {
         return null;
     }
 
-
-    public Item setCompoundTag(CompoundTag tag) {
-        this.tags = writeCompoundTag(tag);
+    public Item setNamedTag(@Nullable CompoundTag tag) {
         this.cachedNBT = tag;
+        this.tags = writeCompoundTag(tag);
         return this;
+    }
+
+    @Nullable
+    public CompoundTag getNamedTag() {
+        if (!this.hasCompoundTag()) {
+            return null;
+        }
+
+        if (this.cachedNBT == null) {
+            this.cachedNBT = parseCompoundTag(this.tags);
+        }
+        return this.cachedNBT;
+    }
+
+    public Item setCompoundTag(@Nullable CompoundTag tag) {
+        return setNamedTag(tag);
     }
 
     public Item setCompoundTag(byte[] tags) {
         this.tags = tags;
         this.cachedNBT = parseCompoundTag(tags);
-        return this;
-    }
-
-    public Item setNamedTag(CompoundTag tag) {
-        this.cachedNBT = tag;
-        this.tags = writeCompoundTag(tag);
         return this;
     }
 
@@ -719,17 +732,6 @@ public abstract class Item implements Cloneable, ItemID {
             if (cachedNBT == null) cachedNBT = parseCompoundTag(tags);
             return !cachedNBT.isEmpty();
         } else return false;
-    }
-
-    public CompoundTag getNamedTag() {
-        if (!this.hasCompoundTag()) {
-            return null;
-        }
-
-        if (this.cachedNBT == null) {
-            this.cachedNBT = parseCompoundTag(this.tags);
-        }
-        return this.cachedNBT;
     }
 
     public CompoundTag getOrCreateNamedTag() {
@@ -756,6 +758,9 @@ public abstract class Item implements Cloneable, ItemID {
     }
 
     public byte[] writeCompoundTag(CompoundTag tag) {
+        if (tag == null) {
+            return EmptyArrays.EMPTY_BYTES;
+        }
         try {
             return NBTIO.write(tag, ByteOrder.LITTLE_ENDIAN);
         } catch (IOException e) {
@@ -840,8 +845,12 @@ public abstract class Item implements Cloneable, ItemID {
     }
 
     @ApiStatus.Internal
-    public void setBlockUnsafe(Block block) {
+    public void setBlockUnsafe(@Nullable Block block) {
         this.block = block;
+        if (block != null) {
+            this.id = block.getItemId().intern();
+            this.identifier = new Identifier(id);
+        }
     }
 
     public final String getId() {
@@ -868,7 +877,7 @@ public abstract class Item implements Cloneable, ItemID {
         }
         if (i == Integer.MAX_VALUE) {
             log.warn("Can't find runtimeId for item {}, will return unknown itemblock!", getId());
-            return getUnknownRuntimeId();//cant find runtimeId
+            return getUnknownRuntimeId();// Can't find runtimeId
         }
         return i;
     }
@@ -896,6 +905,7 @@ public abstract class Item implements Cloneable, ItemID {
     public void setDamage(int damage) {
         this.meta = damage & 0xffff;
         this.hasMeta = true;
+        internalAdjust();
     }
 
     /**
@@ -1233,44 +1243,39 @@ public abstract class Item implements Cloneable, ItemID {
      * @return equal
      */
     public final boolean equalsExact(Item other) {
-        return this.equals(other, true, true, true) && this.count == other.count;
+        return this.equals(other, true, true) && this.count == other.count;
     }
 
     @Override
     public final boolean equals(Object item) {
-        return item instanceof Item && this.equals((Item) item, true);
+        return item instanceof Item it && this.equals(it, true);
     }
 
     public final boolean equals(Item item, boolean checkDamage) {
         return equals(item, checkDamage, true);
     }
 
-    public final boolean equals(Item item, boolean checkDamage, boolean checkCompound) {
-        return equals(item, checkDamage, true, checkCompound);
+    public boolean equalItemBlock(Item item) {
+        if (this.isBlock() && item.isBlock()) {
+            return this.getBlockUnsafe().getBlockState() == item.getBlockUnsafe().getBlockState();
+        }
+        return true;
     }
 
-    /**
-     * if two items are equal
-     *
-     * @param item          the item
-     * @param checkDamage   Whether to check the data values
-     * @param checkBlock    Whether to check the item blockstate
-     * @param checkCompound Whether to check the NBT
-     * @return the boolean
-     */
-    public final boolean equals(Item item, boolean checkDamage, boolean checkBlock, boolean checkCompound) {
+    public final boolean equals(Item item, boolean checkDamage, boolean checkCompound) {
         if (!Objects.equals(this.getId(), item.getId())) return false;
-        if (checkDamage && this.hasMeta() && item.hasMeta()) {
-            if (this.getDamage() != item.getDamage()) return false;
+        if (checkDamage && this.hasMeta() && item.hasMeta() && this.getDamage() != item.getDamage()) {
+            return false;
         }
-        if (checkBlock && this.isBlock() && item.isBlock()) {
-            if (this.getBlockUnsafe().getBlockState() != item.getBlockUnsafe().getBlockState()) return false;
+        if (checkDamage && !equalItemBlock(item)) {
+            return false;
         }
-        if (checkCompound && this.hasCompoundTag() && item.hasCompoundTag()) {
+        if (checkCompound && (this.hasCompoundTag() || item.hasCompoundTag())) {
             return Objects.equals(this.getNamedTag(), item.getNamedTag());
         }
         return true;
     }
+
 
     /**
      * Same as {@link #equals(Item, boolean)} but the enchantment order of the items does not affect the result.
@@ -1476,8 +1481,6 @@ public abstract class Item implements Cloneable, ItemID {
     }
 
     public static class ItemJsonComponents {
-        private static final Gson gson = new Gson();
-
         public static class CanPlaceOn {
             public String[] blocks;
         }
@@ -1493,7 +1496,7 @@ public abstract class Item implements Cloneable, ItemID {
         }
 
         public static ItemJsonComponents fromJson(String json) {
-            return gson.fromJson(json, ItemJsonComponents.class);
+            return JSONUtils.from(json, ItemJsonComponents.class);
         }
 
         public static class KeepOnDeath {

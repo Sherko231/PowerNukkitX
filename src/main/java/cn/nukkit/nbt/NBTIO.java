@@ -1,19 +1,23 @@
 package cn.nukkit.nbt;
 
+import cn.nukkit.block.BlockID;
 import cn.nukkit.block.BlockState;
+import cn.nukkit.block.BlockUnknown;
 import cn.nukkit.item.Item;
-import cn.nukkit.item.ItemBlock;
+import cn.nukkit.item.UnknownItem;
+import cn.nukkit.level.updater.block.BlockStateUpdaters;
+import cn.nukkit.level.updater.item.ItemUpdaters;
 import cn.nukkit.nbt.stream.FastByteArrayOutputStream;
 import cn.nukkit.nbt.stream.NBTInputStream;
 import cn.nukkit.nbt.stream.NBTOutputStream;
 import cn.nukkit.nbt.stream.PGZIPOutputStream;
 import cn.nukkit.nbt.tag.CompoundTag;
+import cn.nukkit.nbt.tag.LinkedCompoundTag;
 import cn.nukkit.nbt.tag.Tag;
 import cn.nukkit.nbt.tag.TreeMapCompoundTag;
 import cn.nukkit.registry.Registries;
 import cn.nukkit.utils.HashUtils;
 import cn.nukkit.utils.ThreadCache;
-import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.BufferedInputStream;
@@ -31,6 +35,8 @@ import java.util.Collection;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
 import java.util.zip.GZIPInputStream;
+
+import static cn.nukkit.network.protocol.ProtocolInfo.BLOCK_STATE_VERSION_NO_REVISION;
 
 /**
  * A Named Binary Tag library for Nukkit Project
@@ -53,45 +59,87 @@ public class NBTIO {
         if (item.hasCompoundTag()) {
             tag.putCompound("tag", item.getNamedTag());
         }
-        if (item.isBlock()) {
+        //ItemID same with blockID, represent this is a pure blockitem,
+        //and only blockitem need to be written `Block` to NBT,
+        //whereas for `minecraft:potato` item, the corresponding block is `minecraft:potatos`
+        //these items do not need to be written
+        if (item.isBlock() && item.getBlockId().equals(item.getId())) {
             tag.putCompound("Block", item.getBlockUnsafe().getBlockState().getBlockStateTag().copy());
         }
+        tag.putInt("version", BLOCK_STATE_VERSION_NO_REVISION);
         return tag;
     }
 
     public static Item getItemHelper(CompoundTag tag) {
+        String name = tag.getString("Name");
+        if (name == null || name.isBlank() || name.equals(BlockID.AIR)) {
+            return Item.AIR;
+        }
         if (!tag.containsByte("Count")) {
             return Item.AIR;
         }
-        String name;
-        Preconditions.checkNotNull((name = tag.getString("Name")));
+
+        //upgrade item
+        if (tag.contains("version")) {
+            int ver = tag.getInt("version");
+            if (ver < BLOCK_STATE_VERSION_NO_REVISION) {
+                tag = ItemUpdaters.updateItem(tag, BLOCK_STATE_VERSION_NO_REVISION);
+            }
+        }
 
         int damage = !tag.containsShort("Damage") ? 0 : tag.getShort("Damage");
         int amount = tag.getByte("Count");
-        Item item = Registries.ITEM.get(name);
-        if (item == null) {
-            if (tag.containsCompound("Block")) {
-                CompoundTag block = tag.getCompound("Block");
-                BlockState blockState = getBlockStateHelper(block);
-                if (blockState == null) return Item.AIR;
-                item = new ItemBlock(blockState.toBlock());
-            } else return Item.AIR;
-        } else if (tag.containsCompound("Block")) {
-            CompoundTag block = tag.getCompound("Block");
-            BlockState blockState = getBlockStateHelper(block);
-            if (blockState != null) item.setBlockUnsafe(blockState.toBlock());
-        }
-
-        if (damage != 0) {
-            item.setDamage(damage);
-        }
-        item.setCount(amount);
-
+        Item item = Item.get(name, damage, amount);
         Tag tagTag = tag.get("tag");
-        if (tagTag instanceof CompoundTag compoundTag) {
+        if (!item.isNull() && tagTag instanceof CompoundTag compoundTag && !compoundTag.isEmpty()) {
             item.setNamedTag(compoundTag);
         }
-        item.autoAssignStackNetworkId();
+
+        if (tag.containsCompound("Block")) {
+            CompoundTag block = tag.getCompound("Block");
+            boolean isUnknownBlock = block.getString("name").equals(BlockID.UNKNOWN) && block.containsCompound("Block");
+            if (isUnknownBlock) {
+                block = block.getCompound("Block");//originBlock
+            }
+            //upgrade block
+            if (block.contains("version")) {
+                int ver = block.getInt("version");
+                if (ver < BLOCK_STATE_VERSION_NO_REVISION) {
+                    block = BlockStateUpdaters.updateBlockState(block, BLOCK_STATE_VERSION_NO_REVISION);
+                }
+            }
+            BlockState blockState = getBlockStateHelper(block);
+            if (blockState != null) {
+                if (isUnknownBlock) {//restore unknown block item
+                    item = blockState.toItem();
+                    if (damage != 0) {
+                        item.setDamage(damage);
+                    }
+                    item.setCount(amount);
+                }
+                item.setBlockUnsafe(blockState.toBlock());
+            } else if (item.isNull()) {//write unknown block item
+                item = new UnknownItem(BlockID.UNKNOWN, damage, amount);
+                CompoundTag compoundTag = new LinkedCompoundTag()
+                        .putString("name", block.getString("name"))
+                        .putCompound("states", new TreeMapCompoundTag(block.getCompound("states").getTags()));
+                int hash = HashUtils.fnv1a_32_nbt(compoundTag);
+                compoundTag.putInt("version", block.getInt("version"));
+                BlockState unknownBlockState = BlockState.makeUnknownBlockState(hash, compoundTag);
+                item.setBlockUnsafe(new BlockUnknown(unknownBlockState));
+            }
+        } else {
+            if (item.isNull()) {//write unknown item
+                item = new UnknownItem(BlockID.UNKNOWN, damage, amount);
+                item.getOrCreateNamedTag().putCompound("Item", new CompoundTag().putString("Name", name));
+            } else if (item.getId().equals(BlockID.UNKNOWN) && item.getOrCreateNamedTag().containsCompound("Item")) {//restore unknown item
+                CompoundTag removeTag = item.getNamedTag().removeAndGet("Item");
+                String originItemName = removeTag.getString("Name");
+                Item originItem = Item.get(originItemName, damage, amount);
+                originItem.setNamedTag(item.getNamedTag());
+                item = originItem;
+            }
+        }
         return item;
     }
 

@@ -18,6 +18,7 @@ public abstract class BlockRedstoneRepeater extends BlockRedstoneDiode {
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
+        if(isNotActivate(player)) return false;
         int repeaterDelay = getPropertyValue(REPEATER_DELAY);
         if (repeaterDelay == 3) {
             setPropertyValue(REPEATER_DELAY, 0);
@@ -40,7 +41,7 @@ public abstract class BlockRedstoneRepeater extends BlockRedstoneDiode {
             return false;
         }
 
-        if (this.level.getServer().isRedstoneEnabled()) {
+        if (this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             if (shouldBePowered()) {
                 this.level.scheduleUpdate(this, 1);
             }

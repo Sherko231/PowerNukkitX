@@ -6,7 +6,9 @@ import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.utils.Utils;
 import io.netty.util.internal.EmptyArrays;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.awt.*;
@@ -18,6 +20,8 @@ import java.util.List;
  * @since 5.3.2017
  */
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class ClientboundMapItemDataPacket extends DataPacket {
 
     public static final int NETWORK_ID = ProtocolInfo.CLIENTBOUND_MAP_ITEM_DATA_PACKET;
@@ -123,7 +127,7 @@ public class ClientboundMapItemDataPacket extends DataPacket {
                 byteBuf.writeUnsignedVarInt(width * height);
                 for (int y = 0; y < width; y++) {
                     for (int x = 0; x < height; x++) {
-                        byteBuf.writeUnsignedVarInt(this.image.getRGB(x, y));
+                        byteBuf.writeUnsignedVarInt((int) Utils.toABGR(this.image.getRGB(x, y)));
                     }
                 }
 

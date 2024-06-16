@@ -2,12 +2,8 @@ package cn.nukkit.blockentity;
 
 import cn.nukkit.Player;
 import cn.nukkit.level.format.IChunk;
-import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.protocol.BlockEntityDataPacket;
-
-import java.io.IOException;
-import java.nio.ByteOrder;
 
 /**
  * @author MagicDroidX (Nukkit Project)
@@ -24,15 +20,12 @@ public abstract class BlockEntitySpawnable extends BlockEntity {
         this.spawnToAll();
     }
 
-    /***
-     * This method cannot call any chunk-related and level-related methods, otherwise it will cause a deadlock
-     */
     public CompoundTag getSpawnCompound() {
         return new CompoundTag()
                 .putString("id", namedTag.getString("id"))
-                .putInt("x", (int) x)
-                .putInt("y", (int) y)
-                .putInt("z", (int) z);
+                .putInt("x", getFloorX())
+                .putInt("y", getFloorY())
+                .putInt("z", getFloorZ());
     }
 
     public void spawnTo(Player player) {
@@ -53,14 +46,10 @@ public abstract class BlockEntitySpawnable extends BlockEntity {
         }
 
         BlockEntityDataPacket pk = new BlockEntityDataPacket();
-        pk.x = (int) this.x;
-        pk.y = (int) this.y;
-        pk.z = (int) this.z;
-        try {
-            pk.namedTag = NBTIO.write(nbt, ByteOrder.LITTLE_ENDIAN, true);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        pk.x = this.getFloorX();
+        pk.y = this.getFloorY();
+        pk.z = this.getFloorZ();
+        pk.namedTag = nbt;
 
         return pk;
     }

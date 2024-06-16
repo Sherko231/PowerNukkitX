@@ -242,11 +242,6 @@ public class BlockBigDripleaf extends BlockFlowable implements Faceable {
     }
 
     @Override
-    public Item[] getDrops(Item item) {
-        return new Item[]{new BlockSmallDripleafBlock().toItem()};
-    }
-
-    @Override
     public boolean onProjectileHit(@NotNull Entity projectile, @NotNull Position position, @NotNull Vector3 motion) {
         setTiltAndScheduleTick(BigDripleafTilt.FULL_TILT);
         return true;
@@ -306,7 +301,7 @@ public class BlockBigDripleaf extends BlockFlowable implements Faceable {
 
     private boolean isValidSupportBlock(String id) {
         return Objects.equals(id, BIG_DRIPLEAF) ||
-                Objects.equals(id, GRASS) ||
+                Objects.equals(id, GRASS_BLOCK) ||
                 Objects.equals(id, DIRT) ||
                 Objects.equals(id, MYCELIUM) ||
                 Objects.equals(id, PODZOL) ||

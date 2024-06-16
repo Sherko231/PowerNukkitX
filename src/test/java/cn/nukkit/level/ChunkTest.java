@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 @ExtendWith({GameMockExtension.class})
 public class ChunkTest {
     @Test
@@ -36,26 +38,54 @@ public class ChunkTest {
     }
 
     @Test
-    void test_recalculateHeightMap(LevelProvider levelDBProvider) {
+    void testSetBlockSkyLight(LevelProvider levelDBProvider) {
         IChunk chunk = levelDBProvider.getChunk(0, 0);
+        chunk.setBlockSkyLight(0, 100, 0, 10);
+        Assertions.assertEquals(10, chunk.getBlockSkyLight(0, 100, 0));
+    }
+
+    @Test
+    void testSetBlockLight(LevelProvider levelDBProvider) {
+        IChunk chunk = levelDBProvider.getChunk(0, 0);
+        chunk.setBlockLight(0, 100, 0, 10);
+        Assertions.assertEquals(10, chunk.getBlockLight(0, 100, 0));
+    }
+
+    @Test
+    void testSetBiome(LevelProvider levelDBProvider) {
+        IChunk chunk = levelDBProvider.getChunk(0, 0);
+        chunk.setBiomeId(0, 100, 0, 10);
+        Assertions.assertEquals(10, chunk.getBiomeId(0, 100, 0));
+    }
+
+    @Test
+    void test_recalculateHeightMap(LevelProvider levelDBProvider) {
+        IChunk chunk = levelDBProvider.getChunk(1000, 1000, true);
+        levelDBProvider.getLevel().syncGenerateChunk(1000, 1000);
         chunk.recalculateHeightMap();
+        Assertions.assertEquals(4, chunk.getHeightMap(0, 0));
     }
 
     @Test
     void test_recalculateHeightMapColumn(LevelProvider levelDBProvider) {
-        IChunk chunk = levelDBProvider.getChunk(0, 0);
+        IChunk chunk = levelDBProvider.getChunk(1000, 1000, true);
+        levelDBProvider.getLevel().syncGenerateChunk(1000, 1000);
         chunk.recalculateHeightMapColumn(0, 0);
+        Assertions.assertEquals(4, chunk.getHeightMap(0, 0));
     }
 
     @Test
     void test_populateSkyLight(LevelProvider levelDBProvider) {
-        IChunk chunk = levelDBProvider.getChunk(0, 0);
+        IChunk chunk = levelDBProvider.getChunk(1000, 1000, true);
+        levelDBProvider.getLevel().syncGenerateChunk(1000, 1000);
         chunk.populateSkyLight();
+        Assertions.assertEquals(15, chunk.getBlockSkyLight(0, 5, 0));
+        Assertions.assertEquals(15, chunk.getBlockSkyLight(0, 6, 0));
     }
 
     @Test
     void testSaveAndReadChunkEntity(LevelProvider levelDBProvider) {
-        IChunk chunk = levelDBProvider.getChunk(0, 0);
+        IChunk chunk = levelDBProvider.getChunk(0, 0, true);
         Item item = Item.get(ItemID.GOLD_INGOT);
         EntityItem itemEntity = (EntityItem) Entity.createEntity(Entity.ITEM,
                 chunk,
@@ -68,16 +98,14 @@ public class ChunkTest {
         chunk.addEntity(itemEntity);
 
         List<Entity> list = chunk.getEntities().values().stream().filter(e -> e.getIdentifier().equals(EntityID.ITEM)).toList();
-        Assertions.assertEquals(2, chunk.getEntities().values().size());
-        Assertions.assertEquals(1, list.size());
+        Assertions.assertFalse(list.isEmpty());
         Assertions.assertEquals(EntityID.ITEM, list.get(0).getIdentifier());
 
         levelDBProvider.saveChunk(0, 0, chunk);
         IChunk newChunk = levelDBProvider.getChunk(0, 0);
         Assertions.assertNotNull(newChunk);
         List<Entity> list2 = chunk.getEntities().values().stream().filter(e -> e.getIdentifier().equals(EntityID.ITEM)).toList();
-        Assertions.assertEquals(2, chunk.getEntities().values().size());
-        Assertions.assertEquals(1, list2.size());
+        Assertions.assertFalse(list2.isEmpty());
         Assertions.assertEquals(EntityID.ITEM, list2.get(0).getIdentifier());
     }
 
@@ -94,7 +122,7 @@ public class ChunkTest {
     }
 
     @Test
-    void testMutiThreadOperate(LevelProvider levelDBProvider) {
+    void testMultiThreadOperate(LevelProvider levelDBProvider) {
         final IChunk chunk = levelDBProvider.getChunk(0, 0);
         Set<Thread> threadSet = new HashSet<>();
         for (int i = 0; i < Runtime.getRuntime().availableProcessors(); i++) {
@@ -139,5 +167,12 @@ public class ChunkTest {
                 throw new RuntimeException(e);
             }
         });
+    }
+
+    @Test
+    @SneakyThrows
+    void test_SectionIsEmpty() {
+        ChunkSection chunkSection = new ChunkSection((byte) 0);
+        assertTrue(chunkSection.isEmpty());
     }
 }

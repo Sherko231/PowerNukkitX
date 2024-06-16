@@ -1,7 +1,6 @@
 package cn.nukkit.entity;
 
 import cn.nukkit.Player;
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.item.Item;
 import cn.nukkit.math.Vector3;
 import org.jetbrains.annotations.NotNull;
@@ -50,19 +49,5 @@ public interface EntityNameable {
             return true;
         }
         return false;
-    }
-
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN",
-            reason = "New implementation needs a player instance, using this method may allow players to name unexpected entities",
-            by = "PowerNukkit", replaceWith = "playerApplyNameTag(Player, Item)")
-    default boolean applyNameTag(Item item) {
-        if (item.hasCustomName()) {
-            this.setNameTag(item.getCustomName());
-            this.setNameTagVisible(true);
-            return true;
-        } else {
-            return false;
-        }
     }
 }

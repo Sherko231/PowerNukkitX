@@ -8,7 +8,7 @@ import cn.nukkit.math.BlockVector3;
 import cn.nukkit.network.protocol.NetworkChunkPublisherUpdatePacket;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayFIFOQueue;
+import it.unimi.dsi.fastutil.longs.LongArrayPriorityQueue;
 import it.unimi.dsi.fastutil.longs.LongComparator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +45,7 @@ public final class PlayerChunkManager {
     //保存着这tick将要发送的全部区块hash值
     private final @NotNull LongOpenHashSet inRadiusChunks;
     private final int trySendChunkCountPerTick;
-    private final LongArrayFIFOQueue chunkSendQueue;
+    private final LongArrayPriorityQueue chunkSendQueue;
     private final Long2ObjectOpenHashMap<CompletableFuture<IChunk>> chunkLoadingQueue;
     private final Long2ObjectOpenHashMap<IChunk> chunkReadyToSend;
     private long lastLoaderChunkPosHashed = Long.MAX_VALUE;
@@ -54,13 +54,26 @@ public final class PlayerChunkManager {
         this.player = player;
         this.sentChunks = new LongOpenHashSet();
         this.inRadiusChunks = new LongOpenHashSet();
-        this.chunkSendQueue = new LongArrayFIFOQueue(player.getViewDistance() * player.getViewDistance());
+        this.chunkSendQueue = new LongArrayPriorityQueue(player.getViewDistance() * player.getViewDistance(), chunkDistanceComparator);
         this.chunkLoadingQueue = new Long2ObjectOpenHashMap<>(player.getViewDistance() * player.getViewDistance());
         this.trySendChunkCountPerTick = player.getChunkSendCountPerTick();
         this.chunkReadyToSend = new Long2ObjectOpenHashMap<>();
     }
 
-    public void tick() {
+    /**
+     * Handle chunk loading when the player teleported
+     */
+    public synchronized void handleTeleport() {
+        if (!player.isConnected()) return;
+        BlockVector3 floor = player.asBlockVector3();
+        updateInRadiusChunks(1, floor);
+        removeOutOfRadiusChunks();
+        updateChunkSendingQueue();
+        loadQueuedChunks(5, true);
+        sendChunk();
+    }
+
+    public synchronized void tick() {
         if (!player.isConnected()) return;
         long currentLoaderChunkPosHashed;
         BlockVector3 floor = player.asBlockVector3();
@@ -70,21 +83,7 @@ public final class PlayerChunkManager {
             removeOutOfRadiusChunks();
             updateChunkSendingQueue();
         }
-        loadQueuedChunks(trySendChunkCountPerTick);
-        sendChunk();
-    }
-
-    public void handleTeleport() {
-        if (!player.isConnected()) return;
-        long currentLoaderChunkPosHashed;
-        BlockVector3 floor = player.asBlockVector3();
-        if ((currentLoaderChunkPosHashed = Level.chunkHash(floor.x >> 4, floor.z >> 4)) != lastLoaderChunkPosHashed) {
-            lastLoaderChunkPosHashed = currentLoaderChunkPosHashed;
-            updateInRadiusChunks(4, floor);
-            removeOutOfRadiusChunks();
-            updateChunkSendingQueue();
-        }
-        loadQueuedChunks(Integer.MAX_VALUE);
+        loadQueuedChunks(trySendChunkCountPerTick, false);
         sendChunk();
     }
 
@@ -96,6 +95,18 @@ public final class PlayerChunkManager {
     @ApiStatus.Internal
     public LongOpenHashSet getInRadiusChunks() {
         return inRadiusChunks;
+    }
+
+    @ApiStatus.Internal
+    public void addSendChunk(int x, int z) {
+        chunkSendQueue.enqueue(Level.chunkHash(x, z));
+    }
+
+    private void updateChunkSendingQueue() {
+        chunkSendQueue.clear();
+        //已经发送的区块不再二次发送
+        Sets.SetView<Long> difference = Sets.difference(inRadiusChunks, sentChunks);
+        difference.forEach(v -> chunkSendQueue.enqueue(v.longValue()));
     }
 
     private void updateInRadiusChunks(int viewDistance, BlockVector3 currentPos) {
@@ -131,14 +142,7 @@ public final class PlayerChunkManager {
         sentChunks.removeAll(difference);
     }
 
-    private void updateChunkSendingQueue() {
-        chunkSendQueue.clear();
-        //已经发送的区块不再二次发送
-        Sets.SetView<Long> difference = Sets.difference(inRadiusChunks, sentChunks);
-        difference.stream().sorted(chunkDistanceComparator).forEachOrdered(v -> chunkSendQueue.enqueue(v.longValue()));
-    }
-
-    private void loadQueuedChunks(int trySendChunkCountPerTick) {
+    private void loadQueuedChunks(int trySendChunkCountPerTick, boolean force) {
         if (chunkSendQueue.isEmpty()) return;
         int triedSendChunkCount = 0;
         do {
@@ -151,7 +155,7 @@ public final class PlayerChunkManager {
                 try {
                     IChunk chunk = chunkTask.get(10, TimeUnit.MICROSECONDS);
                     if (chunk == null || !chunk.getChunkState().canSend()) {
-                        player.level.generateChunk(chunkX, chunkZ);
+                        player.level.generateChunk(chunkX, chunkZ, force);
                         chunkSendQueue.enqueue(chunkHash);
                         continue;
                     }
@@ -170,10 +174,10 @@ public final class PlayerChunkManager {
 
     private void sendChunk() {
         if (!chunkReadyToSend.isEmpty()) {
-            NetworkChunkPublisherUpdatePacket packet = new NetworkChunkPublisherUpdatePacket();
-            packet.position = player.asBlockVector3();
-            packet.radius = player.getViewDistance() << 4;
-            player.dataPacket(packet);
+            NetworkChunkPublisherUpdatePacket ncp = new NetworkChunkPublisherUpdatePacket();
+            ncp.position = player.asBlockVector3();
+            ncp.radius = player.getViewDistance() << 4;
+            player.dataPacket(ncp);
             for (var e : chunkReadyToSend.long2ObjectEntrySet()) {
                 int chunkX = Level.getHashX(e.getLongKey());
                 int chunkZ = Level.getHashZ(e.getLongKey());

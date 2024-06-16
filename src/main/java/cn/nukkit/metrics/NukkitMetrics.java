@@ -2,7 +2,6 @@ package cn.nukkit.metrics;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.utils.Config;
 import cn.nukkit.utils.LoginChainData;
 import lombok.extern.slf4j.Slf4j;
@@ -12,7 +11,11 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -34,22 +37,6 @@ public class NukkitMetrics {
     private boolean logFailedRequests;
 
     private Metrics metrics;
-
-    /**
-     * Setup the nukkit metrics and starts it if it hadn't started yet.
-     *
-     * @param server The Nukkit server
-     * @deprecated Replace with {@link #startNow(Server)}
-     */
-    @SuppressWarnings({"DeprecatedIsStillUsed", "java:S1133"})
-    @Deprecated
-    @DeprecationDetails(by = "PowerNukkit", since = "1.4.0.0-PN", replaceWith = "NukkitMetrics.startNow(Server)",
-            reason = "The original cloudburst nukkit constructor implementation behaves like a stateful static method " +
-                    "and don't comply with Java standards. Use the static method startNow(server) instead.")
-
-    public NukkitMetrics(Server server) {
-        this(server, true);
-    }
 
     private NukkitMetrics(Server server, boolean start) {
         this.server = server;

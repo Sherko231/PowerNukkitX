@@ -2,6 +2,8 @@ package cn.nukkit.block;
 
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.enums.StoneSlabType3;
+import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import org.jetbrains.annotations.NotNull;
 
@@ -13,12 +15,14 @@ public class BlockStoneBlockSlab3 extends BlockSlab {
         return PROPERTIES;
     }
 
-    public BlockStoneBlockSlab3() {
-        this(PROPERTIES.getDefaultState());
+    public BlockStoneBlockSlab3(BlockState blockstate) {
+        super(blockstate, getDoubleBlockState(blockstate));
     }
 
-    public BlockStoneBlockSlab3(BlockState blockstate) {
-        super(blockstate, DOUBLE_STONE_BLOCK_SLAB3);
+    static BlockState getDoubleBlockState(BlockState blockState) {
+        if (blockState == null) return BlockDoubleStoneBlockSlab3.PROPERTIES.getDefaultState();
+        StoneSlabType3 propertyValue = blockState.getPropertyValue(CommonBlockProperties.STONE_SLAB_TYPE_3);
+        return BlockDoubleStoneBlockSlab3.PROPERTIES.getBlockState(CommonBlockProperties.STONE_SLAB_TYPE_3, propertyValue);
     }
 
     @Override
@@ -54,4 +58,10 @@ public class BlockStoneBlockSlab3 extends BlockSlab {
         setPropertyValue(CommonBlockProperties.STONE_SLAB_TYPE_3, type);
     }
 
+    public Item toItem() {
+        Block block = PROPERTIES.getBlockState(CommonBlockProperties.STONE_SLAB_TYPE_3.createValue(getSlabType())).toBlock();
+        ItemBlock itemBlock = new ItemBlock(block);
+        itemBlock.setBlockUnsafe(block);
+        return itemBlock;
+    }
 }

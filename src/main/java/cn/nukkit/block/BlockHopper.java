@@ -2,7 +2,6 @@ package cn.nukkit.block;
 
 import cn.nukkit.Player;
 import cn.nukkit.Server;
-import cn.nukkit.api.*;
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityHopper;
@@ -12,9 +11,7 @@ import cn.nukkit.event.inventory.InventoryMoveItemEvent;
 import cn.nukkit.inventory.ContainerInventory;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.inventory.InventoryHolder;
-import cn.nukkit.recipe.RecipeInventoryHolder;
 import cn.nukkit.item.Item;
-import cn.nukkit.item.ItemHopper;
 import cn.nukkit.item.ItemTool;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Position;
@@ -93,7 +90,7 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
 
         setBlockFace(facing);
 
-        if (this.level.getServer().isRedstoneEnabled()) {
+        if (this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             boolean powered = this.isGettingPower();
 
             if (powered == this.isEnabled()) {
@@ -107,9 +104,7 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        if (player == null) {
-            return false;
-        }
+        if(isNotActivate(player)) return false;
 
         BlockEntityHopper blockEntity = getOrCreateBlockEntity();
 
@@ -137,12 +132,6 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
         return super.getComparatorInputOverride();
     }
 
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN", replaceWith = "getBlockFace()", reason = "Duplicated")
-    public BlockFace getFacing() {
-        return getBlockFace();
-    }
-
     public boolean isEnabled() {
         return !getPropertyValue(TOGGLE_BIT);
     }
@@ -153,7 +142,7 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
 
     @Override
     public int onUpdate(int type) {
-        if (!this.level.getServer().isRedstoneEnabled()) {
+        if (!this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             return 0;
         }
 
@@ -189,11 +178,6 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
     }
 
     @Override
-    public Item toItem() {
-        return new ItemHopper();
-    }
-
-    @Override
     public boolean canHarvestWithHand() {
         return false;
     }
@@ -225,8 +209,8 @@ public class BlockHopper extends BlockTransparent implements RedstoneComponent, 
             Block blockSide = hopperPos.getSide(BlockFace.UP).getTickCachedLevelBlock();
             BlockEntity blockEntity = hopperPos.level.getBlockEntity(new Vector3().setComponentsAdding(hopperPos, BlockFace.UP));
 
-            if (blockEntity instanceof InventoryHolder) {
-                Inventory inv = blockEntity instanceof RecipeInventoryHolder recipeInventoryHolder ? recipeInventoryHolder.getProductView() : ((InventoryHolder) blockEntity).getInventory();
+            if (blockEntity instanceof InventoryHolder holder) {
+                Inventory inv = holder instanceof cn.nukkit.inventory.RecipeInventoryHolder recipeInventoryHolder ? recipeInventoryHolder.getProductView() : holder.getInventory();
 
                 for (int i = 0; i < inv.getSize(); i++) {
                     Item item = inv.getItem(i);

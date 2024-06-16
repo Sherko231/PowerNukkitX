@@ -24,7 +24,10 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import static cn.nukkit.block.property.CommonBlockProperties.ATTACHMENT;
+import static cn.nukkit.block.property.CommonBlockProperties.DIRECTION;
+import static cn.nukkit.block.property.CommonBlockProperties.REDSTONE_SIGNAL;
+import static cn.nukkit.block.property.CommonBlockProperties.TOGGLE_BIT;
 
 public class BlockBell extends BlockTransparent implements RedstoneComponent, Faceable, BlockEntityHolder<BlockEntityBell> {
     public static final BlockProperties PROPERTIES = new BlockProperties(BELL, ATTACHMENT, DIRECTION, CommonBlockProperties.TOGGLE_BIT);
@@ -161,6 +164,7 @@ public class BlockBell extends BlockTransparent implements RedstoneComponent, Fa
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
+        if(isNotActivate(player)) return false;
         return ring(player, player != null ? BellRingEvent.RingCause.HUMAN_INTERACTION : BellRingEvent.RingCause.UNKNOWN);
     }
 
@@ -292,7 +296,7 @@ public class BlockBell extends BlockTransparent implements RedstoneComponent, Fa
                 this.level.useBreakOn(this);
             }
             return type;
-        } else if (type == Level.BLOCK_UPDATE_REDSTONE && this.level.getServer().isRedstoneEnabled()) {
+        } else if (type == Level.BLOCK_UPDATE_REDSTONE && this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             if (this.isGettingPower()) {
                 if (!isToggled()) {
                     setToggled(true);

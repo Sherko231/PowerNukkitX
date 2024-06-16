@@ -1,13 +1,13 @@
 package cn.nukkit.block;
 
-import cn.nukkit.block.property.enums.FlowerType;
 import org.jetbrains.annotations.NotNull;
 
-public class BlockYellowFlower extends BlockRedFlower {
+public class BlockYellowFlower extends BlockFlower {
     public static final BlockProperties PROPERTIES = new BlockProperties(YELLOW_FLOWER);
 
     @Override
-    @NotNull public BlockProperties getProperties() {
+    @NotNull
+    public BlockProperties getProperties() {
         return PROPERTIES;
     }
 
@@ -20,17 +20,7 @@ public class BlockYellowFlower extends BlockRedFlower {
     }
 
     @Override
-    protected Block getUncommonFlower() {
-        return get(RED_FLOWER);
-    }
-
-    @Override
-    public void setFlowerType(FlowerType flowerType) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public FlowerType getFlowerType() {
-        throw new UnsupportedOperationException();
+    public Block getUncommonFlower() {
+        return get(RED_TULIP);
     }
 }

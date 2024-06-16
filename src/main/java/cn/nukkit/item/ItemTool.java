@@ -30,11 +30,9 @@ public abstract class ItemTool extends Item implements ItemDurable {
     public static final int TYPE_AXE = 4;
     public static final int TYPE_SHEARS = 5;
     public static final int TYPE_HOE = 6;
-
     /**
      * Same breaking speed independent of the tool.
      */
-
     public static final int TYPE_HANDS_ONLY = dynamic(Integer.MAX_VALUE);
 
     public static final int DURABILITY_WOODEN = dynamic(60);
@@ -85,15 +83,15 @@ public abstract class ItemTool extends Item implements ItemDurable {
     }
 
     public ItemTool(String id) {
-        this(id, 0, 1, UNKNOWN_STR);
+        this(id, 0, 1, null);
     }
 
     public ItemTool(String id, Integer meta) {
-        this(id, meta, 1, UNKNOWN_STR);
+        this(id, meta, 1, null);
     }
 
     public ItemTool(String id, Integer meta, int count) {
-        this(id, meta, count, UNKNOWN_STR);
+        this(id, meta, count, null);
     }
 
     public ItemTool(String id, Integer meta, int count, String name) {
@@ -122,7 +120,7 @@ public abstract class ItemTool extends Item implements ItemDurable {
         } else if (!this.isShears() && block.calculateBreakTime(this) > 0) {
             incDamage(2);
         } else if (this.isHoe()) {
-            if (block.getId().equals(Block.GRASS) || block.getId().equals(Block.DIRT)) {
+            if (block.getId().equals(Block.GRASS_BLOCK) || block.getId().equals(Block.DIRT)) {
                 incDamage(1);
             }
         } else {
@@ -131,9 +129,14 @@ public abstract class ItemTool extends Item implements ItemDurable {
         return true;
     }
 
+    @Override
+    public void setDamage(int damage) {
+        super.setDamage(damage);
+        this.getOrCreateNamedTag().putInt("Damage", damage);
+    }
+
     public void incDamage(int v) {
-        this.meta += v;
-        this.getOrCreateNamedTag().putInt("Damage", meta);
+        setDamage(this.meta += v);
     }
 
     @Override

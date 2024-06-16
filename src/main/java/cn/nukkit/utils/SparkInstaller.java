@@ -8,15 +8,12 @@ import javax.annotation.Nonnull;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.nio.file.Files;
 import java.util.Arrays;
 
 
 @Slf4j
 public class SparkInstaller {
-    private static final String version = "0.0.1";
-
     public static boolean initSpark(@Nonnull Server server) {
         boolean download = false;
         Plugin spark = server.getPluginManager().getPlugin("spark");
@@ -25,11 +22,19 @@ public class SparkInstaller {
         }
 
         if (download) {
-            try (InputStream in = new URL("https://github.com/PowerNukkitX-Bundle/spark/releases/download/" + version + "/spark-pnx.jar").openStream()) {
-                File targetPath = new File(server.getPluginPath() + "/spark.jar");
-                Files.copy(in, targetPath.toPath());
-                server.getPluginManager().enablePlugin(server.getPluginManager().loadPlugin(targetPath));
-                log.info("Spark has been installed.");
+            try (InputStream in = SparkInstaller.class.getClassLoader().getResourceAsStream("spark.jar")) {
+                assert in != null;
+                File targetPath = new File(server.getPluginPath(), "spark.jar");
+                if (!targetPath.exists()) {
+                    //Do not remove this try catch block!!!
+                    try {
+                        Files.copy(in, targetPath.toPath());
+                        server.getPluginManager().enablePlugin(server.getPluginManager().loadPlugin(targetPath));
+                        log.info("Spark has been installed.");
+                    } catch (Exception e)  {
+                        log.warn("Failed to copy spark: {}", Arrays.toString(e.getStackTrace()));
+                    }
+                }
             } catch (IOException e) {
                 log.warn("Failed to download spark: {}", Arrays.toString(e.getStackTrace()));
             }

@@ -2,6 +2,8 @@ package cn.nukkit.block;
 
 import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.block.property.enums.StoneSlabType2;
+import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
 import org.jetbrains.annotations.NotNull;
 
@@ -53,8 +55,8 @@ public class BlockDoubleStoneBlockSlab2 extends BlockDoubleSlabBase {
     }
 
     @Override
-    public String getSingleSlabId() {
-        return STONE_BLOCK_SLAB2;
+    public BlockState getSingleSlab() {
+        return BlockStoneBlockSlab2.PROPERTIES.getDefaultState();
     }
 
     @Override
@@ -65,5 +67,11 @@ public class BlockDoubleStoneBlockSlab2 extends BlockDoubleSlabBase {
     @Override
     public boolean canHarvestWithHand() {
         return false;
+    }
+
+    @Override
+    public Item toItem() {
+        Block block = Block.get(getSingleSlab()).setPropertyValues(CommonBlockProperties.STONE_SLAB_TYPE_2.createValue(getSlabType()));
+        return new ItemBlock(block);
     }
 }

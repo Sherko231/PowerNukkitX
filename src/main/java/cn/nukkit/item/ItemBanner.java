@@ -1,22 +1,20 @@
 package cn.nukkit.item;
 
-import cn.nukkit.api.DeprecationDetails;
-import cn.nukkit.block.Block;
+import cn.nukkit.block.BlockStandingBanner;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.ListTag;
-import cn.nukkit.utils.BannerPattern;
+import cn.nukkit.network.protocol.types.BannerPattern;
 import cn.nukkit.utils.DyeColor;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
 
+import static cn.nukkit.block.property.CommonBlockProperties.GROUND_SIGN_DIRECTION;
+
 /**
  * @author PetteriM1
  */
 public class ItemBanner extends Item {
-    public static final int COMMON_BANNER_TYPE = 0;
-    public static final int OMINOUS_BANNER_TYPE = 1;
-
     public ItemBanner() {
         this(0);
     }
@@ -27,17 +25,11 @@ public class ItemBanner extends Item {
 
     public ItemBanner(Integer meta, int count) {
         super(BANNER, meta, count, "Banner");
-        this.block = Block.get(Block.STANDING_BANNER);
-        updateName();
     }
 
     @Override
-    public void setDamage(int meta) {
-        super.setDamage(meta);
-        updateName();
-    }
-
-    private void updateName() {
+    public void internalAdjust() {
+        block = BlockStandingBanner.PROPERTIES.getBlockState(GROUND_SIGN_DIRECTION.createValue(getDamage())).toBlock();
         name = getBaseDyeColor().getName() + " Banner";
     }
 
@@ -60,32 +52,38 @@ public class ItemBanner extends Item {
     }
 
     public int getType() {
-        return this.getNamedTag().getInt("Type");
+        return this.getOrCreateNamedTag().getInt("Type");
     }
 
     public void setType(int type) {
         CompoundTag tag = this.hasCompoundTag() ? this.getNamedTag() : new CompoundTag();
+        assert tag != null;
         tag.putInt("Type", type);
         this.setNamedTag(tag);
     }
 
-    public void addPattern(BannerPattern pattern) {
+    public void addPattern(BannerPattern bannerPattern) {
         CompoundTag tag = this.hasCompoundTag() ? this.getNamedTag() : new CompoundTag();
+        assert tag != null;
         ListTag<CompoundTag> patterns = tag.getList("Patterns", CompoundTag.class);
         patterns.add(new CompoundTag().
-                putInt("Color", pattern.color().getDyeData() & 0x0f).
-                putString("Pattern", pattern.type().getName()));
+                putInt("Color", bannerPattern.color().getDyeData() & 0x0f).
+                putString("Pattern", bannerPattern.type().getCode()));
         tag.putList("Patterns", patterns);
         this.setNamedTag(tag);
     }
 
     public BannerPattern getPattern(int index) {
         CompoundTag tag = this.hasCompoundTag() ? this.getNamedTag() : new CompoundTag();
-        return BannerPattern.fromCompoundTag(tag.getList("Patterns").size() > index && index >= 0 ? tag.getList("Patterns", CompoundTag.class).get(index) : new CompoundTag());
+        assert tag != null;
+        return BannerPattern.fromCompoundTag(tag.getList("Patterns").size() > index && index >= 0 ?
+                tag.getList("Patterns", CompoundTag.class).get(index) :
+                new CompoundTag());
     }
 
     public void removePattern(int index) {
         CompoundTag tag = this.hasCompoundTag() ? this.getNamedTag() : new CompoundTag();
+        assert tag != null;
         ListTag<CompoundTag> patterns = tag.getList("Patterns", CompoundTag.class);
         if (patterns.size() > index && index >= 0) {
             patterns.remove(index);
@@ -99,12 +97,5 @@ public class ItemBanner extends Item {
 
     public boolean hasPattern() {
         return (this.hasCompoundTag() ? this.getNamedTag() : new CompoundTag()).contains("Patterns");
-    }
-
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN",
-            reason = "Does nothing, used to do a backward compatibility but the content and usage were removed by Cloudburst")
-    public void correctNBT() {
-
     }
 }

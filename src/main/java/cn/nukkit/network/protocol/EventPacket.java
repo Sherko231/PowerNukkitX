@@ -2,9 +2,13 @@ package cn.nukkit.network.protocol;
 
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.network.protocol.types.EventData;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class EventPacket extends DataPacket {
     public long eid;
     public byte usePlayerId;
@@ -22,7 +26,6 @@ public class EventPacket extends DataPacket {
 
     @Override
     public void encode(HandleByteBuf byteBuf) {
-        
         byteBuf.writeVarLong(this.eid);
         byteBuf.writeVarInt(this.eventData.getType().ordinal());
         byteBuf.writeByte(this.usePlayerId);

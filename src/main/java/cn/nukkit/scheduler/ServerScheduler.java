@@ -50,11 +50,95 @@ public class ServerScheduler {
     }
 
     /**
-     * @deprecated Use {@link #scheduleTask(Plugin, Runnable)}
+     * Schedule a task using runnable
+     *
+     * @param task the task
+     * @return the task handler
      */
-    @Deprecated
     public TaskHandler scheduleTask(Runnable task) {
         return addTask(null, task, 0, 0, false);
+    }
+
+    /**
+     * Schedule a task using runnable
+     *
+     * @param task         the task
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
+     */
+    public TaskHandler scheduleTask(Runnable task, boolean asynchronous) {
+        return addTask(null, task, 0, 0, asynchronous);
+    }
+
+    /**
+     * Schedule a async task
+     * <p>
+     * the asynctask is executed in other thread(not main thread)
+     *
+     * @param task the async task
+     * @return the task handler
+     */
+    public TaskHandler scheduleAsyncTask(AsyncTask task) {
+        return addTask(null, task, 0, 0, true);
+    }
+
+    /**
+     * Schedule async task to worker.
+     *
+     * @param task   the task
+     * @param worker the worker
+     */
+    public void scheduleAsyncTaskToWorker(AsyncTask task, int worker) {
+        scheduleAsyncTask(task);
+    }
+
+    /**
+     * Schedule a task with delay.
+     *
+     * @param task         the task
+     * @param delay        the delay, use game tick,20tick = 1s
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
+     */
+    public TaskHandler scheduleDelayedTask(Runnable task, int delay, boolean asynchronous) {
+        return addTask(null, task, delay, 0, asynchronous);
+    }
+
+    /**
+     * Schedule a task with delay and repeat to execute.
+     *
+     * @param task         the task
+     * @param period       the period of repeat,use game tick,20tick = 1s
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
+     */
+    public TaskHandler scheduleRepeatingTask(Runnable task, int period, boolean asynchronous) {
+        return addTask(null, task, 0, period, asynchronous);
+    }
+
+    /**
+     * Schedule delayed repeating task
+     *
+     * @param task   the task
+     * @param delay  the delay, use game tick,20tick = 1s
+     * @param period the period of repeat,use game tick,20tick = 1s
+     * @return the task handler
+     */
+    public TaskHandler scheduleDelayedRepeatingTask(Runnable task, int delay, int period) {
+        return addTask(null, task, delay, period, false);
+    }
+
+    /**
+     * Schedule delayed repeating task.
+     *
+     * @param task         the task
+     * @param delay        the delay, use game tick,20tick = 1s
+     * @param period       the period of repeat,use game tick,20tick = 1s
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
+     */
+    public TaskHandler scheduleDelayedRepeatingTask(Runnable task, int delay, int period, boolean asynchronous) {
+        return addTask(null, task, delay, period, asynchronous);
     }
 
     /**
@@ -68,14 +152,6 @@ public class ServerScheduler {
      */
     public TaskHandler scheduleTask(Plugin plugin, Runnable task) {
         return addTask(plugin, task, 0, 0, false);
-    }
-
-    /**
-     * @deprecated Use {@link #scheduleTask(Plugin, Runnable, boolean)}
-     */
-    @Deprecated
-    public TaskHandler scheduleTask(Runnable task, boolean asynchronous) {
-        return addTask(null, task, 0, 0, asynchronous);
     }
 
     /**
@@ -93,14 +169,6 @@ public class ServerScheduler {
     }
 
     /**
-     * @deprecated Use {@link #scheduleAsyncTask(Plugin, AsyncTask)}
-     */
-    @Deprecated
-    public TaskHandler scheduleAsyncTask(AsyncTask task) {
-        return addTask(null, task, 0, 0, true);
-    }
-
-    /**
      * 设置一个只执行一次的异步任务
      * Set up an asynchronous task to be executed only once
      *
@@ -111,17 +179,8 @@ public class ServerScheduler {
         return addTask(plugin, task, 0, 0, true);
     }
 
-    @Deprecated
-    public void scheduleAsyncTaskToWorker(AsyncTask task, int worker) {
-        scheduleAsyncTask(task);
-    }
-
     public int getAsyncTaskPoolSize() {
         return asyncPool.getCorePoolSize();
-    }
-
-    public void increaseAsyncTaskPoolSize(int newSize) {
-        throw new UnsupportedOperationException("Cannot increase a working pool size."); //wtf?
     }
 
     /**
@@ -150,9 +209,8 @@ public class ServerScheduler {
     }
 
     /**
-     * @deprecated Use {@link #scheduleDelayedTask(Plugin, Runnable, int)}
+     * Use {@link #scheduleDelayedTask(Plugin, Runnable, int)}
      */
-    @Deprecated
     public TaskHandler scheduleDelayedTask(Runnable task, int delay) {
         return addTask(null, task, delay, 0, false);
     }
@@ -171,76 +229,117 @@ public class ServerScheduler {
     }
 
     /**
-     * @deprecated Use {@link #scheduleDelayedTask(Plugin, Runnable, int, boolean)}
+     * Schedule delayed task.
+     *
+     * @param plugin       the task executor (plugin)
+     * @param task         the task
+     * @param delay        the delay, use game tick,20tick = 1s
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
      */
-    @Deprecated
-    public TaskHandler scheduleDelayedTask(Runnable task, int delay, boolean asynchronous) {
-        return addTask(null, task, delay, 0, asynchronous);
-    }
-
     public TaskHandler scheduleDelayedTask(Plugin plugin, Runnable task, int delay, boolean asynchronous) {
         return addTask(plugin, task, delay, 0, asynchronous);
     }
 
     /**
-     * @deprecated Use {@link #scheduleRepeatingTask(Plugin, Runnable, int)}
+     * Schedule repeating task .
+     *
+     * @param plugin the task executor (plugin)
+     * @param task   the task
+     * @param period the period of repeat,use game tick,20tick = 1s
+     * @return the task handler
      */
-    @Deprecated
-    public TaskHandler scheduleRepeatingTask(Runnable task, int period) {
-        return addTask(null, task, 0, period, false);
-    }
-
     public TaskHandler scheduleRepeatingTask(Plugin plugin, Runnable task, int period) {
         return addTask(plugin, task, 0, period, false);
     }
 
-    /**
-     * @deprecated Use {@link #scheduleRepeatingTask(Plugin, Runnable, int, boolean)}
-     */
-    @Deprecated
-    public TaskHandler scheduleRepeatingTask(Runnable task, int period, boolean asynchronous) {
-        return addTask(null, task, 0, period, asynchronous);
-    }
 
+    /**
+     * Schedule repeating task .
+     *
+     * @param plugin       the task executor (plugin)
+     * @param task         the task
+     * @param period       the period of repeat,use game tick,20tick = 1s
+     * @param asynchronous whether is executed in other thread(not main thread)
+     * @return the task handler
+     */
     public TaskHandler scheduleRepeatingTask(Plugin plugin, Runnable task, int period, boolean asynchronous) {
         return addTask(plugin, task, 0, period, asynchronous);
     }
 
+    /**
+     * Schedule repeating task .
+     *
+     * @param task   the task
+     * @param period the period of repeat,use game tick,20tick = 1s
+     * @return the task handler
+     */
     public TaskHandler scheduleRepeatingTask(Task task, int period) {
         return addTask(task, 0, period, false);
     }
 
+    /**
+     * Schedule repeating task.
+     *
+     * @param task         the task
+     * @param period       the period
+     * @param asynchronous the asynchronous
+     * @return the task handler
+     */
     public TaskHandler scheduleRepeatingTask(Task task, int period, boolean asynchronous) {
         return addTask(task, 0, period, asynchronous);
     }
 
+    /**
+     * Schedule repeating task.
+     *
+     * @param task   the task
+     * @param period the period
+     * @return the task handler
+     */
+    public TaskHandler scheduleRepeatingTask(Runnable task, int period) {
+        return addTask(null, task, 0, period, false);
+    }
+
+    /**
+     * Schedule delayed repeating task.
+     *
+     * @param task   the task
+     * @param delay  the delay
+     * @param period the period
+     * @return the task handler
+     */
     public TaskHandler scheduleDelayedRepeatingTask(Task task, int delay, int period) {
         return addTask(task, delay, period, false);
     }
 
+    /**
+     * Schedule delayed repeating task.
+     *
+     * @param task         the task
+     * @param delay        the delay
+     * @param period       the period
+     * @param asynchronous the asynchronous
+     * @return the task handler
+     */
     public TaskHandler scheduleDelayedRepeatingTask(Task task, int delay, int period, boolean asynchronous) {
         return addTask(task, delay, period, asynchronous);
     }
 
-    /**
-     * @deprecated Use {@link #scheduleDelayedRepeatingTask(Plugin, Runnable, int, int)}
-     */
-    @Deprecated
-    public TaskHandler scheduleDelayedRepeatingTask(Runnable task, int delay, int period) {
-        return addTask(null, task, delay, period, false);
-    }
 
+    /**
+     * Schedule delayed repeating task.
+     *
+     * @param plugin the plugin
+     * @param task   the task
+     * @param delay  the delay
+     * @param period the period
+     * @return the task handler
+     */
     public TaskHandler scheduleDelayedRepeatingTask(Plugin plugin, Runnable task, int delay, int period) {
         return addTask(plugin, task, delay, period, false);
     }
 
-    /**
-     * @deprecated Use {@link #scheduleDelayedRepeatingTask(Plugin, Runnable, int, int, boolean)}
-     */
-    @Deprecated
-    public TaskHandler scheduleDelayedRepeatingTask(Runnable task, int delay, int period, boolean asynchronous) {
-        return addTask(null, task, delay, period, asynchronous);
-    }
 
     /**
      * 设置一个延迟周期任务
@@ -268,6 +367,11 @@ public class ServerScheduler {
         }
     }
 
+    /**
+     * Cancel all task of specific plugin.
+     *
+     * @param plugin the specific plugin.
+     */
     public void cancelTask(Plugin plugin) {
         if (plugin == null) {
             throw new NullPointerException("Plugin cannot be null!");
@@ -402,7 +506,7 @@ public class ServerScheduler {
     }
 
     @ApiStatus.Internal
-    public AsyncPool getAsyncPool() {
+    public AsyncPool getAsyncTaskThreadPool() {
         return asyncPool;
     }
 }

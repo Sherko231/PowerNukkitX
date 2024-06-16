@@ -15,7 +15,9 @@ import cn.nukkit.utils.RedstoneComponent;
 import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 
-import static cn.nukkit.block.property.CommonBlockProperties.*;
+import static cn.nukkit.block.property.CommonBlockProperties.MINECRAFT_CARDINAL_DIRECTION;
+import static cn.nukkit.block.property.CommonBlockProperties.OUTPUT_LIT_BIT;
+import static cn.nukkit.block.property.CommonBlockProperties.OUTPUT_SUBTRACT_BIT;
 
 /**
  * @author CreeperFace
@@ -59,12 +61,12 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode impleme
     }
 
     @Override
-    protected BlockRedstoneComparator getUnpowered() {
+    public BlockRedstoneComparator getUnpowered() {
         return (BlockRedstoneComparator) Block.get(BlockID.UNPOWERED_COMPARATOR).setPropertyValues(blockstate.getBlockPropertyValues());
     }
 
     @Override
-    protected BlockRedstoneComparator getPowered() {
+    public BlockRedstoneComparator getPowered() {
         return (BlockRedstoneComparator) Block.get(BlockID.POWERED_COMPARATOR).setPropertyValues(blockstate.getBlockPropertyValues());
     }
 
@@ -125,13 +127,14 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode impleme
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
+        if(isNotActivate(player)) return false;
         if (getMode() == Mode.SUBTRACT) {
             setMode(Mode.COMPARE);
         } else {
             setMode(Mode.SUBTRACT);
         }
 
-        this.level.addLevelEvent(this.add(0.5, 0.5, 0.5), LevelEventPacket.EVENT_SOUND_BUTTON_CLICK, this.getMode() == Mode.SUBTRACT ? 500 : 550);
+        this.level.addLevelEvent(this.add(0.5, 0.5, 0.5), LevelEventPacket.EVENT_ACTIVATE_BLOCK, this.getMode() == Mode.SUBTRACT ? 500 : 550);
         this.level.setBlock(this, this, true, false);
         this.level.updateComparatorOutputLevelSelective(this, true);
         //bug?
@@ -151,7 +154,7 @@ public abstract class BlockRedstoneComparator extends BlockRedstoneDiode impleme
     }
 
     private void onChange() {
-        if (!this.level.getServer().isRedstoneEnabled()) {
+        if (!this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             return;
         }
 

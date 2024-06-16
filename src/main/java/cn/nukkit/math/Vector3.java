@@ -1,6 +1,5 @@
 package cn.nukkit.math;
 
-import cn.nukkit.api.DeprecationDetails;
 import lombok.SneakyThrows;
 import org.jetbrains.annotations.NotNull;
 
@@ -124,12 +123,6 @@ public class Vector3 implements Cloneable {
 
     public Vector3 add(Vector3 x) {
         return new Vector3(this.x + x.getX(), this.y + x.getY(), this.z + x.getZ());
-    }
-
-    @Deprecated
-    @DeprecationDetails(since = "1.4.0.0-PN", reason = "Makes no sense", replaceWith = "clone()")
-    public Vector3 subtract() {
-        return this.subtract(0, 0, 0);
     }
 
     public Vector3 subtract(double x) {

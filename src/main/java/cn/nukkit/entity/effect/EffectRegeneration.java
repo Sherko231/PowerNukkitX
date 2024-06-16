@@ -13,12 +13,13 @@ public class EffectRegeneration extends Effect {
 
     @Override
     public boolean canTick() {
-        int interval = 40 >> this.getAmplifier();
+        int amplifier = Math.min(5, this.getAmplifier());
+        int interval = 50 >> amplifier;
         return interval > 0 && this.getDuration() % interval == 0;
     }
 
     @Override
-    public void apply(Entity entity, double health) {
+    public void apply(Entity entity, double tickCount) {
         if (entity.getHealth() < entity.getMaxHealth()) {
             entity.heal(new EntityRegainHealthEvent(entity, 1, EntityRegainHealthEvent.CAUSE_MAGIC));
         }

@@ -5,7 +5,6 @@ import cn.nukkit.block.property.CommonBlockProperties;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityFlowerPot;
 import cn.nukkit.item.Item;
-import cn.nukkit.item.ItemFlowerPot;
 import cn.nukkit.level.Level;
 import cn.nukkit.math.AxisAlignedBB;
 import cn.nukkit.math.BlockFace;
@@ -54,16 +53,6 @@ public class BlockFlowerPot extends BlockFlowable implements BlockEntityHolder<B
     @NotNull
     public String getBlockEntityType() {
         return BlockEntity.FLOWER_POT;
-    }
-
-    @Override
-    public double getHardness() {
-        return 0;
-    }
-
-    @Override
-    public double getResistance() {
-        return 0;
     }
 
     @Override
@@ -194,12 +183,12 @@ public class BlockFlowerPot extends BlockFlowable implements BlockEntityHolder<B
         }
         if (dropInside) {
             return new Item[]{
-                    new ItemFlowerPot(),
+                    toItem(),
                     Item.get(insideID, insideMeta)
             };
         } else {
             return new Item[]{
-                    new ItemFlowerPot()
+                    toItem()
             };
         }
     }
@@ -239,11 +228,6 @@ public class BlockFlowerPot extends BlockFlowable implements BlockEntityHolder<B
         return false;
     }
 
-    @Override
-    public Item toItem() {
-        return new ItemFlowerPot();
-    }
-
     /**
      * 实现了此接口的方块可以放入花盆中
      */
@@ -269,10 +253,9 @@ public class BlockFlowerPot extends BlockFlowable implements BlockEntityHolder<B
          */
         default CompoundTag getPlantBlockTag() {
             var block = (Block) this;
-            var tag = block.getBlockState().getBlockStateTag();
+            var tag = block.getBlockState().getBlockStateTag().copy();
             var item = block.toItem();
-            return new CompoundTag().putCompound("PlantBlock", tag)
-                    .putString("itemId", item.getId())
+            return tag.putString("itemId", item.getId())
                     .putInt("itemMeta", item.getDamage()); //only exist in PNX
         }
 

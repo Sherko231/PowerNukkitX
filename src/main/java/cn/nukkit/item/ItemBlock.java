@@ -18,16 +18,17 @@ public class ItemBlock extends Item {
     }
 
     public ItemBlock(Block block, int aux, int count) {
-        super(block.getItemId(), aux, count, block.getName());
-        this.block = block;
+        super(block, aux, count, block.getName(), true);
     }
 
     @Override
     public void setDamage(int meta) {
-        int i = Registries.BLOCKSTATE_ITEMMETA.get(block.getId(), meta);
-        if (i != 0) {
-            BlockState blockState = Registries.BLOCKSTATE.get(i);
-            this.block = Registries.BLOCK.get(blockState);
+        if (meta != 0) {
+            int i = Registries.BLOCKSTATE_ITEMMETA.get(block.getId(), meta);
+            if (i != 0) {
+                BlockState blockState = Registries.BLOCKSTATE.get(i);
+                this.block = Registries.BLOCK.get(blockState);
+            }
         }
     }
 
@@ -39,7 +40,8 @@ public class ItemBlock extends Item {
     }
 
     @Override
-    @NotNull public Block getBlock() {
+    @NotNull
+    public Block getBlock() {
         return this.block.clone();
     }
 

@@ -257,3 +257,5 @@ __pycache__
 .vscode
 .vscode/*
 /.gradle/
+/terra/
+/services/

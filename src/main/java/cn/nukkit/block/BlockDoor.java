@@ -48,7 +48,7 @@ public abstract class BlockDoor extends BlockTransparent implements RedstoneComp
         DOOR_DIRECTION.put(BlockFace.NORTH, 3);
     }
 
-    protected BlockDoor(BlockState blockState) {
+    public BlockDoor(BlockState blockState) {
         super(blockState);
     }
 
@@ -114,7 +114,7 @@ public abstract class BlockDoor extends BlockTransparent implements RedstoneComp
             return type;
         }
 
-        if (type == Level.BLOCK_UPDATE_REDSTONE && level.getServer().isRedstoneEnabled()) {
+        if (type == Level.BLOCK_UPDATE_REDSTONE && level.getServer().getSettings().levelSettings().enableRedstone()) {
             this.onRedstoneUpdate();
             return type;
         }
@@ -251,7 +251,7 @@ public abstract class BlockDoor extends BlockTransparent implements RedstoneComp
 
         level.updateAround(block);
 
-        if (level.getServer().isRedstoneEnabled() && !this.isOpen() && this.isGettingPower()) {
+        if (level.getServer().getSettings().levelSettings().enableRedstone() && !this.isOpen() && this.isGettingPower()) {
             this.setOpen(null, true);
         }
 
@@ -279,7 +279,11 @@ public abstract class BlockDoor extends BlockTransparent implements RedstoneComp
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        return toggle(player);
+        if (player != null) {
+            Item itemInHand = player.getInventory().getItemInHand();
+            if (player.isSneaking() && !(itemInHand.isTool() || itemInHand.isNull())) return false;
+            return toggle(player);
+        } else return false;
     }
 
     public void playOpenCloseSound() {

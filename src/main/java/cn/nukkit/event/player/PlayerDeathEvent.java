@@ -1,7 +1,6 @@
 package cn.nukkit.event.player;
 
 import cn.nukkit.Player;
-import cn.nukkit.api.DeprecationDetails;
 import cn.nukkit.event.Cancellable;
 import cn.nukkit.event.HandlerList;
 import cn.nukkit.event.entity.EntityDeathEvent;
@@ -50,14 +49,10 @@ public class PlayerDeathEvent extends EntityDeathEvent implements Cancellable {
         this.deathMessage = deathMessage;
     }
 
-    @Deprecated
-    @DeprecationDetails(since = "1.19.21-r4", reason = "moved to TranslationContainer", replaceWith = "setDeathMessage(TranslationContainer deathMessage)")
     public void setDeathMessage(TextContainer deathMessage) {
         this.deathMessage = deathMessage;
     }
 
-    @Deprecated
-    @DeprecationDetails(since = "1.19.21-r4", reason = "moved to TranslationContainer")
     public void setDeathMessage(String deathMessage) {
         this.deathMessage = new TextContainer(deathMessage);
     }

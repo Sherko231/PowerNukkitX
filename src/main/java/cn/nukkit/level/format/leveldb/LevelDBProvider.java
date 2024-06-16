@@ -18,13 +18,13 @@ import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.IntTag;
 import cn.nukkit.network.protocol.types.GameType;
-import cn.nukkit.scheduler.AsyncTask;
 import cn.nukkit.utils.ChunkException;
 import cn.nukkit.utils.SemVersion;
 import cn.nukkit.utils.Utils;
 import cn.nukkit.utils.collection.nb.Long2ObjectNonBlockingMap;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.buffer.ByteBufOutputStream;
+import it.unimi.dsi.fastutil.Pair;
 import lombok.extern.slf4j.Slf4j;
 import org.iq80.leveldb.CompressionType;
 import org.iq80.leveldb.Options;
@@ -43,16 +43,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.BiConsumer;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * @author MagicDroidX (Nukkit Project)
+ * @author CoolLoong (PNX Project)
  */
 @Slf4j
 public class LevelDBProvider implements LevelProvider {
@@ -107,18 +106,12 @@ public class LevelDBProvider implements LevelProvider {
         boolean isValid = (new File(path, "level.dat").exists()) && new File(path, "db").isDirectory();
         if (isValid) {
             for (File file : Objects.requireNonNull(new File(path, "db").listFiles())) {
-                if (!(file.getName().endsWith(".ldb") || file.getName().endsWith(".log") ||
-                        file.getName().equals("CURRENT") || file.getName().startsWith("MANIFEST-")
-                        || file.getName().equals("FIXED_MANIFEST") || file.getName().equals("LOCK")
-                        || file.getName().equals("LOG") || file.getName().equals("LOG.old")
-                        || file.getName().equals("lost")
-                )) {
-                    isValid = false;
-                    break;
+                if (file.getName().endsWith(".ldb")) {
+                    return true;
                 }
             }
         }
-        return isValid;
+        return false;
     }
 
     public static void writeLevelDat(String pathName, DimensionData dimensionData, LevelDat levelDat) {
@@ -178,14 +171,6 @@ public class LevelDBProvider implements LevelProvider {
     }
 
     @Override
-    public void doGarbageCollection() {
-    }
-
-    @Override
-    public void doGarbageCollection(long time) {
-    }
-
-    @Override
     public Level getLevel() {
         return level;
     }
@@ -208,10 +193,11 @@ public class LevelDBProvider implements LevelProvider {
     public void setChunk(int chunkX, int chunkZ, IChunk chunk) {
         chunk.setPosition(chunkX, chunkZ);
         long index = Level.chunkHash(chunkX, chunkZ);
-        if (this.chunks.containsKey(index) && !this.chunks.get(index).equals(chunk)) {
+        if (this.chunks.containsKey(index) && !Objects.equals(this.chunks.get(index), chunk)) {
             this.unloadChunk(chunkX, chunkZ, false);
         }
-        this.chunks.put(index, chunk);
+        this.lastChunk.remove();//remove cache
+        putChunk(index, chunk);
     }
 
     @Override
@@ -220,27 +206,18 @@ public class LevelDBProvider implements LevelProvider {
     }
 
     @Override
-    public AsyncTask requestChunkTask(int X, int Z) {
-        IChunk chunk = this.getChunk(X, Z, false);
+    public Pair<byte[], Integer> requestChunkData(int x, int z) {
+        IChunk chunk = this.getChunk(x, z, false);
         if (chunk == null) {
             throw new ChunkException("Invalid Chunk Set");
         }
-        long timestamp = chunk.getChanges();
-        BiConsumer<byte[], Integer> callback = (stream, subchunks) -> this.getLevel().chunkRequestCallback(timestamp, X, Z, subchunks, stream);
-        return new AsyncTask() {
-            @Override
-            public void onRun() {
-                serializeToNetwork(chunk, callback);
-            }
-        };
-    }
-
-    public final void serializeToNetwork(IChunk chunk, BiConsumer<byte[], Integer> callback) {
+        AtomicReference<byte[]> data = new AtomicReference<>();
+        AtomicReference<Integer> subChunkCountRef = new AtomicReference<>();
         chunk.batchProcess(unsafeChunk -> {
             final var byteBuf = ByteBufAllocator.DEFAULT.ioBuffer();
             try {
                 final ChunkSection[] sections = unsafeChunk.getSections();
-                int subChunkCount = unsafeChunk.getDimensionData().getChunkSectionCount() - 1;
+                int subChunkCount = unsafeChunk.getDimensionData().getChunkSectionCount();
                 while (subChunkCount-- != 0) {
                     if (sections[subChunkCount] != null) {
                         break;
@@ -248,25 +225,34 @@ public class LevelDBProvider implements LevelProvider {
                 }
                 int total = subChunkCount + 1;
                 //write block
-                for (int i = 0; i < total; i++) {
-                    if (sections[i] == null) {
-                        sections[i] = new ChunkSection((byte) (i + getDimensionData().getMinSectionY()));
+                if (level != null && level.isAntiXrayEnabled()) {
+                    for (int i = 0; i < total; i++) {
+                        if (sections[i] == null) {
+                            sections[i] = new ChunkSection((byte) (i + getDimensionData().getMinSectionY()));
+                        }
+                        assert sections[i] != null;
+                        sections[i].writeObfuscatedToBuf(level, byteBuf);
                     }
-                    assert sections[i] != null;
-                    sections[i].writeToBuf(byteBuf);
+                } else {
+                    for (int i = 0; i < total; i++) {
+                        if (sections[i] == null) {
+                            sections[i] = new ChunkSection((byte) (i + getDimensionData().getMinSectionY()));
+                        }
+                        assert sections[i] != null;
+                        sections[i].writeToBuf(byteBuf);
+                    }
                 }
+
                 // Write biomes
-                int last = total - 1;
-                for (int i = 0; i < last; i++) {
+                for (int i = 0; i < total; i++) {
                     sections[i].biomes().writeToNetwork(byteBuf, Integer::intValue);
                 }
 
                 byteBuf.writeByte(0); // edu- border blocks
 
                 // Block entities
-                final Collection<BlockEntity> tiles = unsafeChunk.getBlockEntities().values();
                 final List<CompoundTag> tagList = new ArrayList<>();
-                for (BlockEntity blockEntity : tiles) {
+                for (BlockEntity blockEntity : unsafeChunk.getBlockEntities().values()) {
                     if (blockEntity instanceof BlockEntitySpawnable blockEntitySpawnable) {
                         tagList.add(blockEntitySpawnable.getSpawnCompound());
                         //Adding NBT to a chunk pack does not show some block entities, and you have to send block entity packets to the player
@@ -278,17 +264,19 @@ public class LevelDBProvider implements LevelProvider {
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
-                byte[] data = Utils.convertByteBuf2Array(byteBuf);
-                callback.accept(data, total);
+                data.set(Utils.convertByteBuf2Array(byteBuf));
+                subChunkCountRef.set(total);
             } finally {
                 byteBuf.release();
             }
         });
+        return Pair.of(data.get(), subChunkCountRef.get());
     }
+
 
     @Override
     public String getPath() {
-        return path.toString();
+        return path;
     }
 
     @Override
@@ -531,7 +519,6 @@ public class LevelDBProvider implements LevelProvider {
 
     @Override
     public void close() {
-        CACHE.remove(path);
         storage.close();
     }
 

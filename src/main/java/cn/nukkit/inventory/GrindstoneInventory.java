@@ -2,6 +2,7 @@ package cn.nukkit.inventory;
 
 import cn.nukkit.Player;
 import cn.nukkit.block.BlockGrindstone;
+import cn.nukkit.event.inventory.InventoryCloseEvent;
 import cn.nukkit.item.Item;
 import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 import com.google.common.collect.BiMap;
@@ -10,7 +11,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Map;
 
 
-public class GrindstoneInventory extends ContainerInventory implements CraftTypeInventory {
+public class GrindstoneInventory extends ContainerInventory implements CraftTypeInventory, SoleInventory {
     private static final int SLOT_FIRST_ITEM = 0;
     private static final int SLOT_SECOND_ITEM = 1;
     private static final int SLOT_RESULT = 2;
@@ -39,6 +40,8 @@ public class GrindstoneInventory extends ContainerInventory implements CraftType
 
     @Override
     public void close(Player who) {
+        InventoryCloseEvent ev = new InventoryCloseEvent(this, who);
+        who.getServer().getPluginManager().callEvent(ev);
         onClose(who);
     }
 
@@ -56,8 +59,6 @@ public class GrindstoneInventory extends ContainerInventory implements CraftType
 
         clear(SLOT_FIRST_ITEM);
         clear(SLOT_SECOND_ITEM);
-
-        who.resetCraftingGridType();
     }
 
     public Item getFirstItem() {

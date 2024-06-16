@@ -5,6 +5,7 @@ import cn.nukkit.Server;
 import cn.nukkit.entity.data.EntityFlag;
 import cn.nukkit.entity.passive.EntityHorse;
 import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemID;
 import cn.nukkit.level.Sound;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
@@ -13,6 +14,7 @@ import cn.nukkit.network.protocol.ContainerClosePacket;
 import cn.nukkit.network.protocol.LevelSoundEventPacket;
 import cn.nukkit.network.protocol.MobArmorEquipmentPacket;
 import cn.nukkit.network.protocol.UpdateEquipmentPacket;
+import cn.nukkit.network.protocol.types.itemstack.ContainerSlotType;
 
 import java.io.IOException;
 import java.util.List;
@@ -27,9 +29,11 @@ public class HorseInventory extends BaseInventory {
     }
 
     static {
-        ListTag<CompoundTag> saddle = new ListTag<CompoundTag>().add(new CompoundTag().putCompound("slotItem", new CompoundTag().putShort("Aux", Short.MAX_VALUE).putString("Name", "minecraft:saddle")));
+        ListTag<CompoundTag> saddle = new ListTag<CompoundTag>().add(new CompoundTag().putCompound("slotItem", new CompoundTag()
+                .putShort("Aux", Short.MAX_VALUE)
+                .putString("Name", ItemID.SADDLE)));
         ListTag<CompoundTag> horseArmor = new ListTag<>();
-        for (var h : List.of("minecraft:leather_horse_armor", "minecraft:iron_horse_armor", "minecraft:golden_horse_armor", "minecraft:diamond_horse_armor")) {
+        for (var h : List.of(ItemID.LEATHER_HORSE_ARMOR, ItemID.IRON_HORSE_ARMOR, ItemID.GOLDEN_HORSE_ARMOR, ItemID.DIAMOND_HORSE_ARMOR)) {
             horseArmor.add(new CompoundTag().putCompound("slotItem", new CompoundTag().putShort("Aux", Short.MAX_VALUE).putString("Name", h)));
         }
         slot0 = new CompoundTag().putList("acceptedItems", saddle).putInt("slotNumber", 0);
@@ -50,6 +54,12 @@ public class HorseInventory extends BaseInventory {
 
     public Item getHorseArmor() {
         return this.getItem(1);
+    }
+
+    @Override
+    public void init() {
+        slotTypeMap.put(0, ContainerSlotType.HORSE_EQUIP);
+        slotTypeMap.put(1, ContainerSlotType.HORSE_EQUIP);
     }
 
     @Override
@@ -79,11 +89,12 @@ public class HorseInventory extends BaseInventory {
 
     @Override
     public void onClose(Player who) {
-        super.onClose(who);
         ContainerClosePacket pk = new ContainerClosePacket();
         pk.windowId = who.getWindowId(this);
         pk.wasServerInitiated = who.getClosingWindowId() != pk.windowId;
+        pk.type = getType();
         who.dataPacket(pk);
+        super.onClose(who);
     }
 
     @Override

@@ -3,12 +3,18 @@ package cn.nukkit.network.protocol;
 import cn.nukkit.nbt.NBTIO;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.connection.util.HandleByteBuf;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.ByteOrder;
 
 @ToString
+@Slf4j
+@NoArgsConstructor
+@AllArgsConstructor
 public class UpdateTradePacket extends DataPacket {
 
     public static final int NETWORK_ID = ProtocolInfo.UPDATE_TRADE_PACKET;
@@ -49,7 +55,7 @@ public class UpdateTradePacket extends DataPacket {
         try {
             byteBuf.writeBytes(NBTIO.write(this.offers, ByteOrder.LITTLE_ENDIAN, true));
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+            log.error("", e);
         }
     }
 

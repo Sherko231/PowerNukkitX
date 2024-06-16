@@ -106,18 +106,11 @@ public class BlockDispenser extends BlockSolid implements RedstoneComponent, Fac
     }
 
     public boolean isTriggered() {
-        return (getPropertyValue(FACING_DIRECTION) & 8) > 0;
+        return getPropertyValue(CommonBlockProperties.TRIGGERED_BIT);
     }
 
     public void setTriggered(boolean value) {
-        int i = 0;
-        i |= getBlockFace().getIndex();
-
-        if (value) {
-            i |= 8;
-        }
-
-        setPropertyValue(FACING_DIRECTION, i);
+        setPropertyValue(CommonBlockProperties.TRIGGERED_BIT, value);
     }
 
     @Override
@@ -127,9 +120,7 @@ public class BlockDispenser extends BlockSolid implements RedstoneComponent, Fac
 
     @Override
     public boolean onActivate(@NotNull Item item, Player player, BlockFace blockFace, float fx, float fy, float fz) {
-        if (player == null) {
-            return false;
-        }
+        if(isNotActivate(player)) return false;
 
         InventoryHolder blockEntity = getBlockEntity();
 
@@ -177,7 +168,7 @@ public class BlockDispenser extends BlockSolid implements RedstoneComponent, Fac
 
     @Override
     public int onUpdate(int type) {
-        if (!this.level.getServer().isRedstoneEnabled()) {
+        if (!this.level.getServer().getSettings().levelSettings().enableRedstone()) {
             return 0;
         }
 

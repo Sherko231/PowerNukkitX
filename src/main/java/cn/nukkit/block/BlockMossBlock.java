@@ -1,8 +1,6 @@
 package cn.nukkit.block;
 
 import cn.nukkit.Player;
-import cn.nukkit.block.property.enums.DoublePlantType;
-import cn.nukkit.block.property.enums.TallGrassType;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemBlock;
 import cn.nukkit.item.ItemTool;
@@ -13,8 +11,6 @@ import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.util.Random;
-
-import static cn.nukkit.block.property.CommonBlockProperties.TALL_GRASS_TYPE;
 
 public class BlockMossBlock extends BlockSolid {
     public static final BlockProperties PROPERTIES = new BlockProperties(MOSS_BLOCK);
@@ -67,7 +63,7 @@ public class BlockMossBlock extends BlockSolid {
 
     public boolean canConvertToMoss(Block block) {
         String id = block.getId();
-        return id.equals(BlockID.GRASS) ||
+        return id.equals(BlockID.GRASS_BLOCK) ||
                 id.equals(BlockID.DIRT) ||
                 id.equals(BlockID.DIRT_WITH_ROOTS) ||
                 id.equals(BlockID.STONE) ||
@@ -109,24 +105,21 @@ public class BlockMossBlock extends BlockSolid {
                             break;
                         double randomDouble = random.nextDouble();
                         if (randomDouble >= 0 && randomDouble < 0.3125) {
-                            pos.level.setBlock(new Position(x, y, z, pos.level), Block.get(BlockID.TALLGRASS), true, true);
+                            pos.level.setBlock(new Position(x, y, z, pos.level), Block.get(BlockID.TALL_GRASS), true, true);
                         }
                         if (randomDouble >= 0.3125 && randomDouble < 0.46875) {
                             pos.level.setBlock(new Position(x, y, z, pos.level), Block.get(BlockID.MOSS_CARPET), true, true);
                         }
                         if (randomDouble >= 0.46875 && randomDouble < 0.53125) {
                             if (canBePopulated2BlockAir(new Position(x, y, z, pos.level))) {
-                                BlockDoublePlant rootBlock = (BlockDoublePlant) Block.get(BlockID.DOUBLE_PLANT);
-                                rootBlock.setDoublePlantType(DoublePlantType.FERN);
+                                BlockLargeFern rootBlock = new BlockLargeFern();
                                 rootBlock.setTopHalf(false);
                                 pos.level.setBlock(new Position(x, y, z, pos.level), rootBlock, true, true);
-                                BlockDoublePlant topBlock = (BlockDoublePlant) Block.get(BlockID.DOUBLE_PLANT);
-                                topBlock.setDoublePlantType(DoublePlantType.FERN);
+                                BlockLargeFern topBlock = new BlockLargeFern();
                                 topBlock.setTopHalf(true);
                                 pos.level.setBlock(new Position(x, y + 1, z, pos.level), topBlock, true, true);
                             } else {
-                                BlockTallgrass block = (BlockTallgrass) Block.get(BlockID.TALLGRASS);
-                                block.setPropertyValue(TALL_GRASS_TYPE, TallGrassType.TALL);
+                                BlockTallGrass block = new BlockTallGrass();
                                 pos.level.setBlock(new Position(x, y, z, pos.level), block, true, true);
                             }
                         }
@@ -148,7 +141,7 @@ public class BlockMossBlock extends BlockSolid {
 
     public boolean canGrowPlant(Position pos) {
         return switch (pos.add(0, -1, 0).getLevelBlock().getId()) {
-            case GRASS, DIRT, PODZOL, FARMLAND, MYCELIUM, DIRT_WITH_ROOTS, MOSS_BLOCK -> true;
+            case GRASS_BLOCK, DIRT, PODZOL, FARMLAND, MYCELIUM, DIRT_WITH_ROOTS, MOSS_BLOCK -> true;
             default -> false;
         };
     }

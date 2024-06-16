@@ -1,10 +1,14 @@
 package cn.nukkit.registry;
 
 import cn.nukkit.Server;
+import cn.nukkit.block.BlockState;
 import cn.nukkit.item.Item;
 import cn.nukkit.item.ItemID;
+import cn.nukkit.nbt.NBTIO;
+import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.network.connection.util.HandleByteBuf;
 import cn.nukkit.network.protocol.CraftingDataPacket;
+import cn.nukkit.network.protocol.types.RecipeUnlockingRequirement;
 import cn.nukkit.recipe.*;
 import cn.nukkit.recipe.descriptor.ComplexAliasDescriptor;
 import cn.nukkit.recipe.descriptor.DefaultDescriptor;
@@ -28,6 +32,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.ByteOrder;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -86,8 +91,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public ShapelessRecipe findShapelessRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.SHAPELESS).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (ShapelessRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (ShapelessRecipe) r;
+            }
         }
         return null;
     }
@@ -102,8 +109,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public ShapedRecipe findShapedRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.SHAPED).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (ShapedRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (ShapedRecipe) r;
+            }
         }
         return null;
     }
@@ -127,8 +136,8 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public FurnaceRecipe findFurnaceRecipe(Item... items) {
         Int2ObjectArrayMap<Set<Recipe>> map1 = recipeMaps.get(RecipeType.FURNACE);
-        if (map1 != null) {
-            Set<Recipe> recipes = map1.get(items.length);
+        Set<Recipe> recipes = map1.get(items.length);
+        if (recipes != null) {
             for (var r : recipes) {
                 if (r.fastCheck(items)) return (FurnaceRecipe) r;
             }
@@ -136,8 +145,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         Int2ObjectArrayMap<Set<Recipe>> map2 = recipeMaps.get(RecipeType.FURNACE_DATA);
         if (map2 == null) return null;
         Set<Recipe> recipes2 = map2.get(items.length);
-        for (var r : recipes2) {
-            if (r.fastCheck(items)) return (FurnaceRecipe) r;
+        if (recipes2 != null) {
+            for (var r : recipes2) {
+                if (r.fastCheck(items)) return (FurnaceRecipe) r;
+            }
         }
         return null;
     }
@@ -161,15 +172,17 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public BlastFurnaceRecipe findBlastFurnaceRecipe(Item... items) {
         Int2ObjectArrayMap<Set<Recipe>> map1 = recipeMaps.get(RecipeType.BLAST_FURNACE);
-        if (map1 != null) {
-            Set<Recipe> recipes = map1.get(items.length);
+        Set<Recipe> recipes = map1.get(items.length);
+        if (recipes != null) {
             for (var r : recipes) {
                 if (r.fastCheck(items)) return (BlastFurnaceRecipe) r;
             }
         }
         Int2ObjectArrayMap<Set<Recipe>> map2 = recipeMaps.get(RecipeType.BLAST_FURNACE_DATA);
-        if (map2 == null) return null;
         Set<Recipe> recipes2 = map2.get(items.length);
+        if (recipes2 == null)
+            return null;
+
         for (var r : recipes2) {
             if (r.fastCheck(items)) return (BlastFurnaceRecipe) r;
         }
@@ -204,8 +217,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         Int2ObjectArrayMap<Set<Recipe>> map2 = recipeMaps.get(RecipeType.SMOKER_DATA);
         if (map2 == null) return null;
         Set<Recipe> recipes2 = map2.get(items.length);
-        for (var r : recipes2) {
-            if (r.fastCheck(items)) return (SmokerRecipe) r;
+        if (recipes2 != null) {
+            for (var r : recipes2) {
+                if (r.fastCheck(items)) return (SmokerRecipe) r;
+            }
         }
         return null;
     }
@@ -240,14 +255,17 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
     }
 
     public CampfireRecipe findCampfireRecipe(Item... items) {
-        Item item = items[0];
         Set<Recipe> recipes = recipeMaps.get(RecipeType.CAMPFIRE).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (CampfireRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (CampfireRecipe) r;
+            }
         }
         Set<Recipe> recipes2 = recipeMaps.get(RecipeType.CAMPFIRE_DATA).get(items.length);
-        for (var r : recipes2) {
-            if (r.fastCheck(items)) return (CampfireRecipe) r;
+        if (recipes2 != null) {
+            for (var r : recipes2) {
+                if (r.fastCheck(items)) return (CampfireRecipe) r;
+            }
         }
         return null;
     }
@@ -262,8 +280,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public MultiRecipe findMultiRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.MULTI).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (MultiRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (MultiRecipe) r;
+            }
         }
         return null;
     }
@@ -278,8 +298,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public StonecutterRecipe findStonecutterRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.STONECUTTER).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (StonecutterRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (StonecutterRecipe) r;
+            }
         }
         return null;
     }
@@ -310,8 +332,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public SmithingTransformRecipe findSmithingTransform(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.SMITHING_TRANSFORM).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (SmithingTransformRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (SmithingTransformRecipe) r;
+            }
         }
         return null;
     }
@@ -326,8 +350,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public BrewingRecipe findBrewingRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.BREWING).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (BrewingRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (BrewingRecipe) r;
+            }
         }
         return null;
     }
@@ -342,8 +368,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public ContainerRecipe findContainerRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.CONTAINER).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (ContainerRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (ContainerRecipe) r;
+            }
         }
         return null;
     }
@@ -358,8 +386,10 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
 
     public ModProcessRecipe findModProcessRecipe(Item... items) {
         Set<Recipe> recipes = recipeMaps.get(RecipeType.MOD_PROCESS).get(items.length);
-        for (var r : recipes) {
-            if (r.fastCheck(items)) return (ModProcessRecipe) r;
+        if (recipes != null) {
+            for (var r : recipes) {
+                if (r.fastCheck(items)) return (ModProcessRecipe) r;
+            }
         }
         return null;
     }
@@ -368,22 +398,28 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         return buffer.copy();
     }
 
-    public String computeRecipeIdWithItem(Collection<Item> results, Collection<Item> inputs, RecipeType type) {
+    public int getRecipeCount() {
+        return RECIPE_COUNT;
+    }
+
+    public Recipe getRecipeByNetworkId(int networkId) {
+        return networkIdRecipeList.get(networkId - 1);
+    }
+
+    public static String computeRecipeIdWithItem(Collection<Item> results, Collection<Item> inputs, RecipeType type) {
         List<Item> inputs1 = new ArrayList<>(inputs);
         return computeRecipeId(results, inputs1.stream().map(DefaultDescriptor::new).toList(), type);
     }
 
-    public String computeRecipeId(Collection<Item> results, Collection<? extends ItemDescriptor> inputs, RecipeType type) {
+    public static String computeRecipeId(Collection<Item> results, Collection<? extends ItemDescriptor> inputs, RecipeType type) {
         StringBuilder builder = new StringBuilder();
         Optional<Item> first = results.stream().findFirst();
-        first.ifPresent(item -> {
-            builder.append(new Identifier(item.getId()).getPath())
-                    .append('_')
-                    .append(item.getCount())
-                    .append('_')
-                    .append(item.isBlock() ? item.getBlockUnsafe().getBlockState().specialValue() : item.getDamage())
-                    .append("_from_");
-        });
+        first.ifPresent(item -> builder.append(new Identifier(item.getId()).getPath())
+                .append('_')
+                .append(item.getCount())
+                .append('_')
+                .append(item.isBlock() ? item.getBlockUnsafe().getBlockState().specialValue() : item.getDamage())
+                .append("_from_"));
         int limit = 5;
         for (var des : inputs) {
             if ((limit--) == 0) {
@@ -397,20 +433,12 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                         .append('_')
                         .append(item.getCount())
                         .append('_')
-                        .append(item.isBlock() ? item.getBlockUnsafe().getRuntimeId() : item.getDamage())
+                        .append(item.getDamage() != 0 ? item.getDamage() : item.isBlock() ? item.getBlockUnsafe().getRuntimeId() : 0)
                         .append("_and_");
             }
         }
         String r = builder.toString();
         return r.substring(0, r.lastIndexOf("_and_")) + "_" + type.name().toLowerCase(Locale.ENGLISH);
-    }
-
-    public int getRecipeCount() {
-        return RECIPE_COUNT;
-    }
-
-    public Recipe getRecipeByNetworkId(int networkId) {
-        return networkIdRecipeList.get(networkId - 1);
     }
 
     public static void setCraftingPacket(ByteBuf craftingPacket) {
@@ -438,10 +466,24 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         allRecipeMaps.trim();
     }
 
+    public void reload() {
+        isLoad.set(false);
+        RECIPE_COUNT = 0;
+        if (buffer != null) {
+            buffer.release();
+            buffer = null;
+        }
+        recipeMaps.clear();
+        recipeXpMap.clear();
+        allRecipeMaps.clear();
+        networkIdRecipeList.clear();
+        init();
+    }
+
     @Override
     public void register(String key, Recipe recipe) throws RegisterException {
         if (recipe instanceof CraftingRecipe craftingRecipe) {
-            Item item = recipe.getResults().get(0);
+            Item item = recipe.getResults().getFirst();
             UUID id = Utils.dataToUUID(String.valueOf(RECIPE_COUNT), String.valueOf(item.getId()), String.valueOf(item.getDamage()), String.valueOf(item.getCount()), Arrays.toString(item.getCompoundTag()));
             if (craftingRecipe.getUUID() == null) craftingRecipe.setUUID(id);
         }
@@ -453,8 +495,8 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         r.add(recipe);
         ++RECIPE_COUNT;
         switch (recipe.getType()) {
-            case STONECUTTER, SHAPELESS, CARTOGRAPHY, SHULKER_BOX, SMITHING_TRANSFORM, SHAPED, MULTI ->
-                    this.networkIdRecipeList.add(recipe);
+            case STONECUTTER, SHAPELESS, CARTOGRAPHY, SHULKER_BOX, SMITHING_TRANSFORM, SMITHING_TRIM,
+                 SHAPED, MULTI -> this.networkIdRecipeList.add(recipe);
         }
     }
 
@@ -556,8 +598,17 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                 int type = Utils.toInt(recipe.get("type"));
                 Recipe re = switch (type) {
                     case 9 -> {
-                        //todo trim smithing recipe
-                        yield null;
+                        String id = recipe.get("id").toString();
+                        Map<String, Object> base = (Map<String, Object>) recipe.get("base");
+                        ItemDescriptor baseItem = parseRecipeItem(base);
+                        Map<String, Object> addition = (Map<String, Object>) recipe.get("addition");
+                        ItemDescriptor additionItem = parseRecipeItem(addition);
+                        Map<String, Object> template = (Map<String, Object>) recipe.get("template");
+                        ItemDescriptor templateItem = parseRecipeItem(template);
+                        if (additionItem == null || baseItem == null || templateItem == null) {
+                            yield null;
+                        }
+                        yield new SmithingTrimRecipe(id, baseItem, additionItem, templateItem, "smithing_table");
                     }
                     case 4 -> {
                         UUID uuid = UUID.fromString(recipe.get("uuid").toString());
@@ -599,9 +650,7 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                     default -> throw new IllegalStateException("Unexpected value: " + recipe);
                 };
                 if (re == null) {
-                    if (type != 9) {//todo trim smithing recipe
-                        log.warn("Load recipe {} with null!", recipe.toString().substring(0, 60));
-                    }
+                    log.warn("Load recipe {} with null!", recipe.toString().substring(0, 60));
                     continue;
                 }
                 this.register(re);
@@ -648,7 +697,7 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         if (outputs.size() > 1) {
             return null;
         }
-        Map<String, Object> first = outputs.get(0);
+        Map<String, Object> first = outputs.getFirst();
 
         int priority = recipeObject.containsKey("priority") ? Utils.toInt(recipeObject.get("priority")) : 0;
 
@@ -664,14 +713,34 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
             }
             itemDescriptors.add(recipeItem);
         }
+
+        RecipeUnlockingRequirement recipeUnlockingRequirement = parseRequirement(recipeObject);
+
         return switch (craftingBlock) {
-            case "crafting_table", "deprecated" -> new ShapelessRecipe(id, uuid, priority, resultItem, itemDescriptors);
-            case "shulker_box" -> new ShulkerBoxRecipe(id, uuid, priority, resultItem, itemDescriptors);
+            case "crafting_table", "deprecated" ->
+                    new ShapelessRecipe(id, uuid, priority, resultItem, itemDescriptors, recipeUnlockingRequirement);
+            case "shulker_box" ->
+                    new ShulkerBoxRecipe(id, uuid, priority, resultItem, itemDescriptors, recipeUnlockingRequirement);
             case "stonecutter" ->
-                    new StonecutterRecipe(id, uuid, priority, resultItem, itemDescriptors.get(0).toItem());
-            case "cartography_table" -> new CartographyRecipe(id, uuid, priority, resultItem, itemDescriptors);
+                    new StonecutterRecipe(id, uuid, priority, resultItem, itemDescriptors.get(0).toItem(), recipeUnlockingRequirement);
+            case "cartography_table" ->
+                    new CartographyRecipe(id, uuid, priority, resultItem, itemDescriptors, recipeUnlockingRequirement);
             default -> null;
         };
+    }
+
+    private RecipeUnlockingRequirement parseRequirement(Map<String, Object> recipeObject) {
+        if (recipeObject.containsKey("requirement")) {
+            Map<String, Object> requirement = (Map<String, Object>) recipeObject.get("requirement");
+            String string = requirement.get("context").toString();
+            RecipeUnlockingRequirement.UnlockingContext unlockingContext = RecipeUnlockingRequirement.UnlockingContext.valueOf(string.toUpperCase(Locale.ENGLISH));
+
+            List<Map<String, Object>> items = (List<Map<String, Object>>) requirement.get("items");
+            RecipeUnlockingRequirement recipeUnlockingRequirement = new RecipeUnlockingRequirement(unlockingContext);
+            recipeUnlockingRequirement.getIngredients().addAll(items.stream().map(this::parseRecipeItem).toList());
+            return recipeUnlockingRequirement;
+        }
+        return null;
     }
 
     private Recipe parseShapeRecipe(Map<String, Object> recipeObject) {
@@ -679,7 +748,7 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
         UUID uuid = UUID.fromString(recipeObject.get("uuid").toString());
         List<Map<String, Object>> outputs = (List<Map<String, Object>>) recipeObject.get("output");
 
-        Map<String, Object> first = outputs.remove(0);
+        Map<String, Object> first = outputs.removeFirst();
         String[] shape = ((List<String>) recipeObject.get("shape")).toArray(EmptyArrays.EMPTY_STRINGS);
         Map<Character, ItemDescriptor> ingredients = new CharObjectHashMap<>();
 
@@ -694,15 +763,22 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
             extraResults.add(output.toItem());
         }
 
-        Map<String, Map<String, Object>> input = (Map<String, Map<String, Object>>) recipeObject.get("input");
-        for (Map.Entry<String, Map<String, Object>> ingredientEntry : input.entrySet()) {
+        Map<?, ?> input = (Map<?, ?>) recipeObject.get("input");
+        boolean mirror = false;
+        if (input.containsKey("assumeSymetry")) {
+            mirror = Boolean.parseBoolean(input.remove("assumeSymetry").toString());
+        }
+        Map<String, Map<String, Object>> input2 = (Map<String, Map<String, Object>>) input;
+        for (Map.Entry<String, Map<String, Object>> ingredientEntry : input2.entrySet()) {
             char ingredientChar = ingredientEntry.getKey().charAt(0);
             var ingredient = ingredientEntry.getValue();
             ItemDescriptor itemDescriptor = parseRecipeItem(ingredient);
             if (itemDescriptor == null) return null;
             ingredients.put(ingredientChar, itemDescriptor);
         }
-        return new ShapedRecipe(id, uuid, priority, primaryResult.toItem(), shape, ingredients, extraResults);
+
+        RecipeUnlockingRequirement recipeUnlockingRequirement = parseRequirement(recipeObject);
+        return new ShapedRecipe(id, uuid, priority, primaryResult.toItem(), shape, ingredients, extraResults, mirror, recipeUnlockingRequirement);
     }
 
     private ItemDescriptor parseRecipeItem(Map<String, Object> data) {
@@ -716,10 +792,12 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                     name = data.get("id").toString();
                 } else if (data.containsKey("itemId")) {
                     name = data.get("itemId").toString();
+                } else if (data.containsKey("name")) {
+                    name = data.get("name").toString();
                 }
                 if (name == null) yield null;
 
-                int count = data.containsKey("count") ? ((Number) data.get("count")).intValue() : 1;
+                int count = data.containsKey("count") ? Utils.toInt(data.get("count")) : 1;
 
                 String nbt = (String) data.get("nbt");
                 byte[] nbtBytes = nbt != null ? Base64.getDecoder().decode(nbt) : EmptyArrays.EMPTY_BYTES;
@@ -730,8 +808,41 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
                 } else if (data.containsKey("auxValue")) {
                     meta = Utils.toInt(data.get("auxValue"));
                 }
+
+                //block item
+                if (data.containsKey("blockHash") || data.containsKey("block_states")) {
+                    BlockState blockState;
+                    if (data.containsKey("blockHash")) {
+                        int blockHash = Utils.toInt(data.get("blockHash"));
+                        blockState = Registries.BLOCKSTATE.get(blockHash);
+                    } else {
+                        try {
+                            blockState = NBTIO.getBlockStateHelper(new CompoundTag()
+                                    .putString("name", name)
+                                    .putCompound("states", NBTIO.read(Base64.getDecoder().decode(data.get("block_states").toString()), ByteOrder.LITTLE_ENDIAN))
+                            );
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                    if (blockState == null) {
+                        log.error("parseRecipeItem {} error because blockstate is null", name);
+                        yield null;
+                    }
+                    item = blockState.toItem();
+                    item.setCount(count);
+                    if (nbtBytes != EmptyArrays.EMPTY_BYTES) {
+                        item.setCompoundTag(nbtBytes);
+                    }
+                    if (meta != null && (meta == Short.MAX_VALUE || meta == -1)) {
+                        item.disableMeta();
+                    }
+                    yield new DefaultDescriptor(item);
+                }
+
+                //normal item
                 if (meta != null) {
-                    if (meta == Short.MAX_VALUE) {
+                    if (meta == Short.MAX_VALUE || meta == -1) {
                         item = Item.get(name, 0, count, nbtBytes, false);
                         item.disableMeta();
                     } else {
@@ -748,7 +859,7 @@ public class RecipeRegistry implements IRegistry<String, Recipe, Recipe> {
             }
             case ITEM_TAG -> {
                 var itemTag = data.get("itemTag").toString();
-                int count = data.containsKey("count") ? ((Number) data.get("count")).intValue() : 1;
+                int count = data.containsKey("count") ? Utils.toInt(data.get("count")) : 1;
                 yield new ItemTagDescriptor(itemTag, count);
             }
             default -> throw new IllegalStateException("Unexpected value: " + type);

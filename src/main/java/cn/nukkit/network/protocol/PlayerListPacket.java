@@ -3,14 +3,15 @@ package cn.nukkit.network.protocol;
 import cn.nukkit.Server;
 import cn.nukkit.entity.data.Skin;
 import cn.nukkit.network.connection.util.HandleByteBuf;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.util.UUID;
 
-/**
- * @author Nukkit Project Team
- */
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class PlayerListPacket extends DataPacket {
 
     public static final int NETWORK_ID = ProtocolInfo.PLAYER_LIST_PACKET;
@@ -48,7 +49,7 @@ public class PlayerListPacket extends DataPacket {
             }
 
             for (Entry entry : this.entries) {
-                byteBuf.writeBoolean(entry.trustedSkin || Server.getInstance().isForceSkinTrusted());
+                byteBuf.writeBoolean(entry.trustedSkin || Server.getInstance().getSettings().playerSettings().forceSkinTrusted());
             }
         } else {
             for (Entry entry : this.entries) {

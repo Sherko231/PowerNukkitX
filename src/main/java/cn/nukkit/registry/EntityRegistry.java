@@ -169,6 +169,7 @@ public class EntityRegistry implements EntityID, IRegistry<EntityRegistry.Entity
         registerInternal(new EntityDefinition(SNIFFER, "", 139, true, true), EntitySniffer.class);
         registerInternal(new EntityDefinition(TRADER_LLAMA, "", 157, true, true), EntityTraderLlama.class);
         registerInternal(new EntityDefinition(CHEST_BOAT, "", 218, false, true), EntityChestBoat.class);
+        registerInternal(new EntityDefinition(ARMADILLO, "", 142, true, true), EntityArmadillo.class);
     }
 
     public Class<? extends Entity> getEntityClass(String id) {
@@ -292,6 +293,18 @@ public class EntityRegistry implements EntityID, IRegistry<EntityRegistry.Entity
     }
 
     @Override
+    public void reload() {
+        isLoad.set(false);
+        CLASS.clear();
+        FAST_NEW.clear();
+        ID2RID.clear();
+        RID2ID.clear();
+        DEFINITIONS.clear();
+        CUSTOM_ENTITY_DEFINITIONS.clear();
+        init();
+    }
+
+    @Override
     public void register(EntityDefinition key, Class<? extends Entity> value) throws RegisterException {
         if (CLASS.putIfAbsent(key.id(), value) == null) {
             try {
@@ -305,6 +318,34 @@ public class EntityRegistry implements EntityID, IRegistry<EntityRegistry.Entity
         } else {
             throw new RegisterException("This Entity has already been registered with the identifier: " + key.id);
         }
+    }
+
+    /**
+     * Register an entity to override internal entity.
+     *
+     * @param plugin   the plugin
+     * @param entityId the entity id {@link EntityID}
+     * @param value    the entity class,must extends internal entity
+     * @throws RegisterException the register exception
+     */
+    public void registerOverrideEntity(Plugin plugin, String entityId, Class<? extends Entity> value) throws RegisterException {
+        EntityDefinition key = getEntityDefinition(entityId);
+        Class<? extends Entity> entityClass = getEntityClass(entityId);
+        if (entityClass == null) {
+            throw new RegisterException("This entity class does not override because can't find entity class from entityId {}", entityId);
+        }
+        if (!entityClass.isAssignableFrom(value)) {
+            throw new RegisterException("This entity class {} does not override the {} because is not assignable from {}!", entityClass.getSimpleName(), value.getSimpleName(), value.getSimpleName());
+        }
+        try {
+            FastMemberLoader memberLoader = fastMemberLoaderCache.computeIfAbsent(plugin.getName(), p -> new FastMemberLoader(plugin.getPluginClassLoader()));
+            FAST_NEW.put(key.id, FastConstructor.create(value.getConstructor(IChunk.class, CompoundTag.class), memberLoader, false));
+        } catch (NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+        ID2RID.put(key.id, key.rid);
+        RID2ID.put(key.rid, key.id);
+        DEFINITIONS.put(key.id, key);
     }
 
     /**
